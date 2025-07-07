@@ -60,14 +60,14 @@ const ForceGraph: React.FC<ForceGraphProps> = ({ data, width = 1200, height = 80
           }
           return -250 - (d.radius || 10) * 3;
         })
-        .distanceMax(500)) // Limit force calculation distance for performance
+        .distanceMax(400)) // Reduced distance for better performance with 600 nodes
       .force('center', d3.forceCenter(width / 2, height / 2))
       .force('collision', d3.forceCollide<GraphNode>()
         .radius((d) => (d.radius || 10) + 8) // Slightly less padding for denser packing
         .strength(0.7)
         .iterations(2)) // More iterations for better collision detection
-      .alphaDecay(0.02) // Faster settling for performance
-      .velocityDecay(0.3); // More damping to prevent jittering
+      .alphaDecay(0.025) // Slightly faster settling for 600 nodes
+      .velocityDecay(0.35); // More damping to prevent jittering with more nodes
 
     // Create links with reduced opacity for clarity with more nodes
     const link = container.append('g')
@@ -75,7 +75,7 @@ const ForceGraph: React.FC<ForceGraphProps> = ({ data, width = 1200, height = 80
       .data(data.links)
       .enter().append('line')
       .attr('stroke', '#ffffff')
-      .attr('stroke-opacity', 0.15) // Lower opacity with more links
+      .attr('stroke-opacity', 0.1) // Lower opacity with more links
       .attr('stroke-width', (d) => d.strength * 1.5);
 
     // Create node groups

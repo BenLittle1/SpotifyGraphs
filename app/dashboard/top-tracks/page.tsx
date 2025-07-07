@@ -39,15 +39,16 @@ export default function TopTracksPage() {
       const client = new SpotifyClient(session.accessToken);
       
       // Fetch more data: top tracks + saved tracks for more variety
-      const [topTracks, savedTracks1, savedTracks2] = await Promise.all([
+      const [topTracks, savedTracks1, savedTracks2, savedTracks3] = await Promise.all([
         client.getTopTracks(50, timeRange),
         client.getSavedTracks(50, 0),
-        client.getSavedTracks(50, 50)
+        client.getSavedTracks(50, 50),
+        client.getSavedTracks(50, 100)
       ]);
       
       // Combine and deduplicate tracks
       const allTracksMap = new Map();
-      [...topTracks, ...savedTracks1, ...savedTracks2].forEach(track => {
+      [...topTracks, ...savedTracks1, ...savedTracks2, ...savedTracks3].forEach(track => {
         allTracksMap.set(track.id, track);
       });
       const uniqueTracks = Array.from(allTracksMap.values());
@@ -69,8 +70,8 @@ export default function TopTracksPage() {
       // Process data into graph format
       const fullGraphData = processSpotifyDataToGraph(uniqueTracks, artists);
       
-      // Filter to ~400 nodes for good performance while showing more data
-      const filteredData = filterGraphBySize(fullGraphData, 400);
+      // Filter to ~600 nodes for good performance while showing more data
+      const filteredData = filterGraphBySize(fullGraphData, 600);
       
       setGraphData(filteredData);
     } catch (err) {
@@ -193,7 +194,7 @@ export default function TopTracksPage() {
           <div className="border-t border-gray-700 pt-4 mt-4">
             <h3 className="text-lg font-semibold mb-3 text-neon-purple">Performance</h3>
             <p className="text-sm text-gray-400">
-              Displaying up to 400 nodes. The graph may take a moment to stabilize with this many elements.
+              Displaying up to 600 nodes. The graph may take a moment to stabilize with this many elements.
             </p>
           </div>
         </div>
