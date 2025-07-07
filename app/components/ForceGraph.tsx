@@ -73,11 +73,11 @@ const ForceGraph: React.FC<ForceGraphProps> = ({ data, width = 1200, height = 80
             // Radial distances for circular clustering
             if ((source?.group === 'genre' && target?.group === 'artist') ||
                 (source?.group === 'artist' && target?.group === 'genre')) {
-              return 120; // Fixed distance for genre-artist
+              return 160; // Increased from 120 for larger genre nodes
             }
             if ((source?.group === 'artist' && target?.group === 'track') ||
                 (source?.group === 'track' && target?.group === 'artist')) {
-              return 100; // Fixed distance for artist-track
+              return 80; // Reduced from 100 for tighter track clustering
             }
             // Much longer distances for non-hierarchical connections
             return 300;
@@ -110,14 +110,17 @@ const ForceGraph: React.FC<ForceGraphProps> = ({ data, width = 1200, height = 80
       .force('charge', d3.forceManyBody<GraphNode>()
         .strength((d) => {
           if (isHierarchical) {
-            // Different charge based on node type for circular layout
+            // Different charge based on node type and size for circular layout
             if (d.group === 'genre') {
-              return -1000; // Strong repulsion for genres to spread them out
+              const radius = 30 + (d.radius || 20) * 0.5;
+              return -1200 - radius * 10; // Stronger repulsion for larger genre nodes
             }
             if (d.group === 'artist') {
-              return -300; // Medium repulsion for artists
+              const radius = Math.max(15, Math.min(30, (d.popularity || 50) / 3.3));
+              return -400 - radius * 5; // Medium repulsion
             }
-            return -100; // Light repulsion for tracks
+            const radius = Math.max(8, Math.min(15, (d.popularity || 50) / 6.7));
+            return -150 - radius * 3; // Light repulsion for small track nodes
           }
           
           if (d.group === 'genre') {
@@ -127,7 +130,22 @@ const ForceGraph: React.FC<ForceGraphProps> = ({ data, width = 1200, height = 80
         })
         .distanceMax(isHierarchical ? 600 : distanceMax))
       .force('collision', d3.forceCollide<GraphNode>()
-        .radius((d) => (d.radius || 10) + (isHierarchical ? collisionPadding * 0.7 : collisionPadding))
+        .radius((d) => {
+          let radius;
+          if (isHierarchical) {
+            // Use the same radius calculation as the visual nodes
+            if (d.group === 'genre') {
+              radius = 30 + (d.radius || 20) * 0.5;
+            } else if (d.group === 'artist') {
+              radius = Math.max(15, Math.min(30, (d.popularity || 50) / 3.3));
+            } else {
+              radius = Math.max(8, Math.min(15, (d.popularity || 50) / 6.7));
+            }
+          } else {
+            radius = d.radius || 10;
+          }
+          return radius + (isHierarchical ? collisionPadding * 0.7 : collisionPadding);
+        })
         .strength(0.7)
         .iterations(isSmall ? 2 : 1))
       .alphaDecay(alphaDecay)
@@ -169,7 +187,7 @@ const ForceGraph: React.FC<ForceGraphProps> = ({ data, width = 1200, height = 80
       // Position genres in a circle
       const genres = data.nodes.filter(n => n.group === 'genre');
       const genreCount = genres.length;
-      const genreRadius = Math.min(width, height) * 0.25;
+      const genreRadius = Math.min(width, height) * 0.3; // Increased from 0.25 to accommodate larger nodes
       
       // Custom positioning force
       const positionForce = (alpha: number) => {
@@ -192,7 +210,8 @@ const ForceGraph: React.FC<ForceGraphProps> = ({ data, width = 1200, height = 80
                 const dx = (d.x || 0) - parent.x;
                 const dy = (d.y || 0) - parent.y;
                 const distance = Math.sqrt(dx * dx + dy * dy);
-                const targetDistance = 100;
+                // Increased distance to account for larger genre nodes
+                const targetDistance = 140;
                 
                 if (distance > 0) {
                   const factor = (targetDistance - distance) / distance * alpha * 0.3;
@@ -210,7 +229,8 @@ const ForceGraph: React.FC<ForceGraphProps> = ({ data, width = 1200, height = 80
                 const dx = (d.x || 0) - parent.x;
                 const dy = (d.y || 0) - parent.y;
                 const distance = Math.sqrt(dx * dx + dy * dy);
-                const targetDistance = 80;
+                // Adjusted distance for medium artist nodes
+                const targetDistance = 70;
                 
                 if (distance > 0) {
                   const factor = (targetDistance - distance) / distance * alpha * 0.3;
@@ -250,7 +270,22 @@ const ForceGraph: React.FC<ForceGraphProps> = ({ data, width = 1200, height = 80
 
     // Add circles to nodes with standard styling
     node.append('circle')
-      .attr('r', (d) => d.radius || 10)
+      .attr('r', (d) => {
+        if (isHierarchical) {
+          // Hierarchical view: genres largest, artists medium, tracks smallest
+          if (d.group === 'genre') {
+            // Genres: 30-50 radius
+            return 30 + (d.radius || 20) * 0.5;
+          } else if (d.group === 'artist') {
+            // Artists: 15-30 radius based on popularity
+            return Math.max(15, Math.min(30, (d.popularity || 50) / 3.3));
+          } else {
+            // Tracks: 8-15 radius based on popularity
+            return Math.max(8, Math.min(15, (d.popularity || 50) / 6.7));
+          }
+        }
+        return d.radius || 10;
+      })
       .attr('fill', (d) => colorScale[d.group])
       .attr('stroke', (d) => colorScale[d.group])
       .attr('stroke-width', 2)
@@ -261,7 +296,22 @@ const ForceGraph: React.FC<ForceGraphProps> = ({ data, width = 1200, height = 80
     node.append('text')
       .text((d) => d.name)
       .attr('x', 0)
-      .attr('y', (d) => (d.radius || 10) + 15)
+      .attr('y', (d) => {
+        // Calculate radius based on view mode
+        let radius;
+        if (isHierarchical) {
+          if (d.group === 'genre') {
+            radius = 30 + (d.radius || 20) * 0.5;
+          } else if (d.group === 'artist') {
+            radius = Math.max(15, Math.min(30, (d.popularity || 50) / 3.3));
+          } else {
+            radius = Math.max(8, Math.min(15, (d.popularity || 50) / 6.7));
+          }
+        } else {
+          radius = d.radius || 10;
+        }
+        return radius + 15;
+      })
       .attr('text-anchor', 'middle')
       .attr('fill', '#ffffff')
       .attr('font-size', '12px')
