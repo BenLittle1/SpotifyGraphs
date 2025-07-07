@@ -8,16 +8,33 @@ export function processSpotifyDataToGraph(
   const links: GraphLink[] = [];
   const nodeMap = new Map<string, GraphNode>();
 
+  // Track genre popularity (how many artists have each genre)
+  const genrePopularity = new Map<string, number>();
+  
+  // First pass: count genre popularity
+  artists.forEach(artist => {
+    artist.genres.forEach(genre => {
+      genrePopularity.set(genre, (genrePopularity.get(genre) || 0) + 1);
+    });
+  });
+
   // Create genre nodes first
   const genreMap = new Map<string, GraphNode>();
   artists.forEach(artist => {
     artist.genres.forEach(genre => {
       if (!genreMap.has(genre)) {
+        const popularity = genrePopularity.get(genre) || 1;
+        const maxGenrePopularity = Math.max(...genrePopularity.values());
+        
+        // Genre nodes: range from 35 to 60 (much bigger than tracks)
+        const genreRadius = 35 + (popularity / maxGenrePopularity) * 25;
+        
         const genreNode: GraphNode = {
           id: `genre-${genre}`,
           name: genre,
           group: 'genre',
-          radius: 20,
+          radius: genreRadius,
+          popularity: popularity * 20, // Scale up for visual importance
         };
         genreMap.set(genre, genreNode);
         nodeMap.set(genreNode.id, genreNode);
@@ -55,6 +72,7 @@ export function processSpotifyDataToGraph(
 
   // Create track nodes and link to artists
   tracks.forEach(track => {
+    // Track nodes: range from 8 to 20 (smaller than genres)
     const trackNode: GraphNode = {
       id: `track-${track.id}`,
       name: track.name,
@@ -62,7 +80,7 @@ export function processSpotifyDataToGraph(
       popularity: track.popularity,
       imageUrl: track.album.images[0]?.url,
       spotifyUrl: track.external_urls.spotify,
-      radius: Math.max(10, Math.min(25, track.popularity / 4)),
+      radius: Math.max(8, Math.min(20, track.popularity / 5)),
     };
     nodeMap.set(trackNode.id, trackNode);
     nodes.push(trackNode);

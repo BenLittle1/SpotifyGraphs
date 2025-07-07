@@ -38,17 +38,32 @@ const ForceGraph: React.FC<ForceGraphProps> = ({ data, width = 1200, height = 80
 
     svg.call(zoom);
 
-    // Create force simulation
+    // Create force simulation with adjusted forces for larger genre nodes
     const simulation = d3.forceSimulation<GraphNode>()
       .force('link', d3.forceLink<GraphNode, GraphLink>()
         .id((d) => d.id)
-        .distance((d) => 100 / d.strength)
+        .distance((d) => {
+          // Increase distance for links involving genre nodes
+          const source = data.nodes.find(n => n.id === (d.source as any).id || n.id === d.source);
+          const target = data.nodes.find(n => n.id === (d.target as any).id || n.id === d.target);
+          if (source?.group === 'genre' || target?.group === 'genre') {
+            return 150 / d.strength;
+          }
+          return 100 / d.strength;
+        })
         .strength((d) => d.strength))
       .force('charge', d3.forceManyBody<GraphNode>()
-        .strength((d) => -300 - (d.radius || 10) * 5))
+        .strength((d) => {
+          // Stronger repulsion for genre nodes
+          if (d.group === 'genre') {
+            return -500 - (d.radius || 10) * 10;
+          }
+          return -300 - (d.radius || 10) * 5;
+        }))
       .force('center', d3.forceCenter(width / 2, height / 2))
       .force('collision', d3.forceCollide<GraphNode>()
-        .radius((d) => (d.radius || 10) + 5));
+        .radius((d) => (d.radius || 10) + 10) // More padding for all nodes
+        .strength(0.8));
 
     // Create links
     const link = container.append('g')
@@ -69,28 +84,30 @@ const ForceGraph: React.FC<ForceGraphProps> = ({ data, width = 1200, height = 80
         .on('drag', dragged)
         .on('end', dragended));
 
-    // Add circles to nodes
+    // Add circles to nodes with enhanced glow for genres
     node.append('circle')
       .attr('r', (d) => d.radius || 10)
       .attr('fill', (d) => colorScale[d.group])
       .attr('stroke', (d) => colorScale[d.group])
-      .attr('stroke-width', 2)
-      .attr('stroke-opacity', 0.8)
-      .style('filter', 'url(#glow)');
+      .attr('stroke-width', (d) => d.group === 'genre' ? 3 : 2)
+      .attr('stroke-opacity', (d) => d.group === 'genre' ? 1 : 0.8)
+      .style('filter', (d) => d.group === 'genre' ? 'url(#glow-strong)' : 'url(#glow)');
 
-    // Add labels
+    // Add labels with different sizing for genres
     node.append('text')
       .text((d) => d.name)
       .attr('x', 0)
       .attr('y', (d) => (d.radius || 10) + 15)
       .attr('text-anchor', 'middle')
       .attr('fill', '#ffffff')
-      .attr('font-size', '12px')
+      .attr('font-size', (d) => d.group === 'genre' ? '16px' : '12px')
       .attr('font-weight', 'bold')
       .style('text-shadow', '0 0 10px rgba(255, 255, 255, 0.5)');
 
-    // Add glow filter
+    // Add glow filters
     const defs = svg.append('defs');
+    
+    // Regular glow
     const filter = defs.append('filter')
       .attr('id', 'glow');
     
@@ -102,6 +119,20 @@ const ForceGraph: React.FC<ForceGraphProps> = ({ data, width = 1200, height = 80
     feMerge.append('feMergeNode')
       .attr('in', 'coloredBlur');
     feMerge.append('feMergeNode')
+      .attr('in', 'SourceGraphic');
+
+    // Strong glow for genres
+    const filterStrong = defs.append('filter')
+      .attr('id', 'glow-strong');
+    
+    filterStrong.append('feGaussianBlur')
+      .attr('stdDeviation', '8')
+      .attr('result', 'coloredBlur');
+    
+    const feMergeStrong = filterStrong.append('feMerge');
+    feMergeStrong.append('feMergeNode')
+      .attr('in', 'coloredBlur');
+    feMergeStrong.append('feMergeNode')
       .attr('in', 'SourceGraphic');
 
     // Add tooltip
@@ -120,12 +151,22 @@ const ForceGraph: React.FC<ForceGraphProps> = ({ data, width = 1200, height = 80
       tooltip.transition()
         .duration(200)
         .style('opacity', .9);
-      tooltip.html(`
-        <div style="color: ${colorScale[d.group]}">
-          <strong>${d.name}</strong><br/>
-          ${d.group === 'track' || d.group === 'artist' ? `Popularity: ${d.popularity}` : ''}
-        </div>
-      `)
+      
+      let content = `<div style="color: ${colorScale[d.group]}">
+        <strong>${d.name}</strong><br/>`;
+      
+      if (d.group === 'genre') {
+        const connectedArtists = data.links.filter(l => 
+          (l.source === d.id || l.target === d.id)
+        ).length;
+        content += `Connected Artists: ${connectedArtists}`;
+      } else if (d.group === 'track' || d.group === 'artist') {
+        content += `Popularity: ${d.popularity}`;
+      }
+      
+      content += '</div>';
+      
+      tooltip.html(content)
         .style('left', (event.pageX + 10) + 'px')
         .style('top', (event.pageY - 28) + 'px')
         .style('border-color', colorScale[d.group]);
