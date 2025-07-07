@@ -18,6 +18,7 @@ export default function TopTracksPage() {
   const [timeRange, setTimeRange] = useState<'short_term' | 'medium_term' | 'long_term'>('medium_term');
   const [nodeCount, setNodeCount] = useState<number>(200);
   const [hasLoaded, setHasLoaded] = useState(false);
+  const [viewMode, setViewMode] = useState<'network' | 'hierarchical'>('network');
 
   useEffect(() => {
     if (status === 'unauthenticated' || session?.error) {
@@ -145,6 +146,35 @@ export default function TopTracksPage() {
               <option value="medium_term">Last 6 Months</option>
               <option value="long_term">All Time</option>
             </select>
+            
+            {hasLoaded && (
+              <>
+                <div className="h-8 w-px bg-gray-700"></div>
+                <label className="text-gray-400 text-sm">View:</label>
+                <div className="flex gap-2">
+                  <button
+                    onClick={() => setViewMode('network')}
+                    className={`px-4 py-2 rounded-lg font-medium transition-all ${
+                      viewMode === 'network' 
+                        ? 'bg-neon-green text-dark-bg' 
+                        : 'bg-dark-surface border border-gray-700 text-gray-400 hover:text-white'
+                    }`}
+                  >
+                    Network
+                  </button>
+                  <button
+                    onClick={() => setViewMode('hierarchical')}
+                    className={`px-4 py-2 rounded-lg font-medium transition-all ${
+                      viewMode === 'hierarchical' 
+                        ? 'bg-neon-green text-dark-bg' 
+                        : 'bg-dark-surface border border-gray-700 text-gray-400 hover:text-white'
+                    }`}
+                  >
+                    Hierarchical
+                  </button>
+                </div>
+              </>
+            )}
           </div>
         </div>
       </div>
@@ -216,6 +246,7 @@ export default function TopTracksPage() {
                 data={graphData} 
                 width={typeof window !== 'undefined' ? window.innerWidth : 1200} 
                 height={typeof window !== 'undefined' ? window.innerHeight - 73 : 800} 
+                viewMode={viewMode}
               />
             )
           )}
@@ -241,6 +272,20 @@ export default function TopTracksPage() {
 
           {hasLoaded && (
             <>
+              <div className="border-t border-gray-700 pt-4 mb-4">
+                <h3 className="text-lg font-semibold mb-3 text-neon-yellow">View Mode</h3>
+                <div className="space-y-2 text-sm text-gray-400">
+                  <p className="font-semibold text-white">
+                    {viewMode === 'network' ? 'Network View' : 'Hierarchical View'}
+                  </p>
+                  <p>
+                    {viewMode === 'network' 
+                      ? 'Traditional force-directed graph showing all connections equally.'
+                      : 'Three-tier layout: Genres at top, Artists in middle, Tracks at bottom. Nodes cluster around their primary connections.'}
+                  </p>
+                </div>
+              </div>
+
               <div className="border-t border-gray-700 pt-4 mb-4">
                 <h3 className="text-lg font-semibold mb-3 text-neon-yellow">Node Control</h3>
                 <div className="space-y-3">

@@ -8,9 +8,10 @@ interface ForceGraphProps {
   data: GraphData;
   width?: number;
   height?: number;
+  viewMode?: 'network' | 'hierarchical';
 }
 
-const ForceGraph: React.FC<ForceGraphProps> = ({ data, width = 1200, height = 800 }) => {
+const ForceGraph: React.FC<ForceGraphProps> = ({ data, width = 1200, height = 800, viewMode = 'network' }) => {
   const svgRef = useRef<SVGSVGElement>(null);
 
   useEffect(() => {
@@ -57,6 +58,13 @@ const ForceGraph: React.FC<ForceGraphProps> = ({ data, width = 1200, height = 80
     const tickFrequency = isSmall ? 1 : isMedium ? 2 : isLarge ? 2 : 3;
     const minLabelRadius = isSmall ? 10 : isMedium ? 12 : isLarge ? 15 : 18;
 
+    // Hierarchical positioning for y-axis
+    const isHierarchical = viewMode === 'hierarchical';
+    const verticalPadding = height * 0.15;
+    const genreY = verticalPadding;
+    const artistY = height / 2;
+    const trackY = height - verticalPadding;
+
     // Create force simulation with dynamic parameters
     const simulation = d3.forceSimulation<GraphNode>()
       .force('link', d3.forceLink<GraphNode, GraphLink>()
@@ -64,14 +72,51 @@ const ForceGraph: React.FC<ForceGraphProps> = ({ data, width = 1200, height = 80
         .distance((d) => {
           const source = data.nodes.find(n => n.id === (d.source as any).id || n.id === d.source);
           const target = data.nodes.find(n => n.id === (d.target as any).id || n.id === d.target);
+          
+          if (isHierarchical) {
+            // Shorter distances for hierarchical clustering
+            if ((source?.group === 'genre' && target?.group === 'artist') ||
+                (source?.group === 'artist' && target?.group === 'genre')) {
+              return (genreLinkDistance * 0.6) / d.strength;
+            }
+            if ((source?.group === 'artist' && target?.group === 'track') ||
+                (source?.group === 'track' && target?.group === 'artist')) {
+              return (linkDistance * 0.6) / d.strength;
+            }
+          }
+          
           if (source?.group === 'genre' || target?.group === 'genre') {
             return genreLinkDistance / d.strength;
           }
           return linkDistance / d.strength;
         })
-        .strength((d) => d.strength * (isSmall ? 0.8 : isMedium ? 0.7 : 0.5)))
+        .strength((d) => {
+          if (isHierarchical) {
+            const source = data.nodes.find(n => n.id === (d.source as any).id || n.id === d.source);
+            const target = data.nodes.find(n => n.id === (d.target as any).id || n.id === d.target);
+            
+            // Stronger attraction for parent-child relationships
+            if ((source?.group === 'genre' && target?.group === 'artist') ||
+                (source?.group === 'artist' && target?.group === 'genre')) {
+              return d.strength * 1.2;
+            }
+            if ((source?.group === 'artist' && target?.group === 'track') ||
+                (source?.group === 'track' && target?.group === 'artist')) {
+              return d.strength * 1.2;
+            }
+          }
+          return d.strength * (isSmall ? 0.8 : isMedium ? 0.7 : 0.5);
+        }))
       .force('charge', d3.forceManyBody<GraphNode>()
         .strength((d) => {
+          if (isHierarchical) {
+            // Reduced repulsion for hierarchical clustering
+            if (d.group === 'genre') {
+              return (genreChargeStrength * 0.5) - (d.radius || 10) * 3;
+            }
+            return (chargeStrength * 0.5) - (d.radius || 10);
+          }
+          
           if (d.group === 'genre') {
             return genreChargeStrength - (d.radius || 10) * 5;
           }
@@ -80,11 +125,29 @@ const ForceGraph: React.FC<ForceGraphProps> = ({ data, width = 1200, height = 80
         .distanceMax(distanceMax))
       .force('center', d3.forceCenter(width / 2, height / 2))
       .force('collision', d3.forceCollide<GraphNode>()
-        .radius((d) => (d.radius || 10) + collisionPadding)
+        .radius((d) => (d.radius || 10) + (isHierarchical ? collisionPadding * 0.7 : collisionPadding))
         .strength(0.7)
         .iterations(isSmall ? 2 : 1))
       .alphaDecay(alphaDecay)
       .velocityDecay(velocityDecay);
+
+    // Add vertical positioning forces for hierarchical view
+    if (isHierarchical) {
+      simulation
+        .force('y', d3.forceY<GraphNode>()
+          .y((d) => {
+            if (d.group === 'genre') return genreY;
+            if (d.group === 'artist') return artistY;
+            return trackY;
+          })
+          .strength(0.5));
+      
+      // Add slight horizontal spreading to prevent overlap
+      simulation
+        .force('x', d3.forceX<GraphNode>()
+          .x(width / 2)
+          .strength(0.05));
+    }
 
     // Create links with dynamic opacity
     const link = container.append('g')
@@ -134,6 +197,42 @@ const ForceGraph: React.FC<ForceGraphProps> = ({ data, width = 1200, height = 80
         }
         return 'block';
       });
+
+    // Add hierarchy labels for hierarchical view
+    if (isHierarchical) {
+      const labels = container.append('g')
+        .attr('class', 'hierarchy-labels');
+      
+      labels.append('text')
+        .attr('x', 50)
+        .attr('y', genreY)
+        .attr('text-anchor', 'start')
+        .attr('fill', colorScale.genre)
+        .attr('font-size', '14px')
+        .attr('font-weight', 'bold')
+        .attr('opacity', 0.7)
+        .text('GENRES');
+      
+      labels.append('text')
+        .attr('x', 50)
+        .attr('y', artistY)
+        .attr('text-anchor', 'start')
+        .attr('fill', colorScale.artist)
+        .attr('font-size', '14px')
+        .attr('font-weight', 'bold')
+        .attr('opacity', 0.7)
+        .text('ARTISTS');
+      
+      labels.append('text')
+        .attr('x', 50)
+        .attr('y', trackY)
+        .attr('text-anchor', 'start')
+        .attr('fill', colorScale.track)
+        .attr('font-size', '14px')
+        .attr('font-weight', 'bold')
+        .attr('opacity', 0.7)
+        .text('TRACKS');
+    }
 
     // Add glow filter
     const defs = svg.append('defs');
@@ -235,7 +334,7 @@ const ForceGraph: React.FC<ForceGraphProps> = ({ data, width = 1200, height = 80
       simulation.stop();
       tooltip.remove();
     };
-  }, [data, width, height]);
+  }, [data, width, height, viewMode]);
 
   return (
     <svg
