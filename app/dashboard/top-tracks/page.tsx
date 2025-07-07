@@ -60,7 +60,7 @@ export default function TopTracksPage() {
 
       // Get unique artist IDs from all tracks
       const artistIds = Array.from(new Set(
-        uniqueTracks.flatMap(track => track.artists.map(artist => artist.id))
+        uniqueTracks.flatMap(track => track.artists.map((artist: { id: string; name: string }) => artist.id))
       ));
 
       // Fetch artist details for genres
