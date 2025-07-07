@@ -8,33 +8,16 @@ export function processSpotifyDataToGraph(
   const links: GraphLink[] = [];
   const nodeMap = new Map<string, GraphNode>();
 
-  // Track genre popularity (how many artists have each genre)
-  const genrePopularity = new Map<string, number>();
-  
-  // First pass: count genre popularity
-  artists.forEach(artist => {
-    artist.genres.forEach(genre => {
-      genrePopularity.set(genre, (genrePopularity.get(genre) || 0) + 1);
-    });
-  });
-
   // Create genre nodes first
   const genreMap = new Map<string, GraphNode>();
   artists.forEach(artist => {
     artist.genres.forEach(genre => {
       if (!genreMap.has(genre)) {
-        const popularity = genrePopularity.get(genre) || 1;
-        const maxGenrePopularity = Math.max(...Array.from(genrePopularity.values()));
-        
-        // Genre nodes: range from 35 to 60 (much bigger than tracks)
-        const genreRadius = 35 + (popularity / maxGenrePopularity) * 25;
-        
         const genreNode: GraphNode = {
           id: `genre-${genre}`,
           name: genre,
           group: 'genre',
-          radius: genreRadius,
-          popularity: popularity * 20, // Scale up for visual importance
+          radius: 20,
         };
         genreMap.set(genre, genreNode);
         nodeMap.set(genreNode.id, genreNode);

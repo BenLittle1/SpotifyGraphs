@@ -88,23 +88,23 @@ const ForceGraph: React.FC<ForceGraphProps> = ({ data, width = 1200, height = 80
         .on('drag', dragged)
         .on('end', dragended));
 
-    // Add circles to nodes with enhanced glow for genres
+    // Add circles to nodes with standard styling
     node.append('circle')
       .attr('r', (d) => d.radius || 10)
       .attr('fill', (d) => colorScale[d.group])
       .attr('stroke', (d) => colorScale[d.group])
-      .attr('stroke-width', (d) => d.group === 'genre' ? 3 : 2)
-      .attr('stroke-opacity', (d) => d.group === 'genre' ? 1 : 0.8)
-      .style('filter', (d) => d.group === 'genre' ? 'url(#glow-strong)' : 'url(#glow)');
+      .attr('stroke-width', 2)
+      .attr('stroke-opacity', 0.8)
+      .style('filter', 'url(#glow)');
 
-    // Add labels with different sizing for genres - hide small track labels for clarity
+    // Add labels with standard sizing - hide small track labels for clarity
     node.append('text')
       .text((d) => d.name)
       .attr('x', 0)
       .attr('y', (d) => (d.radius || 10) + 15)
       .attr('text-anchor', 'middle')
       .attr('fill', '#ffffff')
-      .attr('font-size', (d) => d.group === 'genre' ? '16px' : '12px')
+      .attr('font-size', '12px')
       .attr('font-weight', 'bold')
       .style('text-shadow', '0 0 10px rgba(255, 255, 255, 0.5)')
       .style('display', (d) => {
@@ -115,10 +115,9 @@ const ForceGraph: React.FC<ForceGraphProps> = ({ data, width = 1200, height = 80
         return 'block';
       });
 
-    // Add glow filters
+    // Add glow filter
     const defs = svg.append('defs');
     
-    // Regular glow
     const filter = defs.append('filter')
       .attr('id', 'glow');
     
@@ -130,20 +129,6 @@ const ForceGraph: React.FC<ForceGraphProps> = ({ data, width = 1200, height = 80
     feMerge.append('feMergeNode')
       .attr('in', 'coloredBlur');
     feMerge.append('feMergeNode')
-      .attr('in', 'SourceGraphic');
-
-    // Strong glow for genres
-    const filterStrong = defs.append('filter')
-      .attr('id', 'glow-strong');
-    
-    filterStrong.append('feGaussianBlur')
-      .attr('stdDeviation', '8')
-      .attr('result', 'coloredBlur');
-    
-    const feMergeStrong = filterStrong.append('feMerge');
-    feMergeStrong.append('feMergeNode')
-      .attr('in', 'coloredBlur');
-    feMergeStrong.append('feMergeNode')
       .attr('in', 'SourceGraphic');
 
     // Add tooltip
@@ -164,21 +149,12 @@ const ForceGraph: React.FC<ForceGraphProps> = ({ data, width = 1200, height = 80
         .duration(200)
         .style('opacity', .9);
       
-      let content = `<div style="color: ${colorScale[d.group]}">
-        <strong>${d.name}</strong><br/>`;
-      
-      if (d.group === 'genre') {
-        const connectedArtists = data.links.filter(l => 
-          (l.source === d.id || l.target === d.id)
-        ).length;
-        content += `Connected Artists: ${connectedArtists}`;
-      } else if (d.group === 'track' || d.group === 'artist') {
-        content += `Popularity: ${d.popularity}`;
-      }
-      
-      content += '</div>';
-      
-      tooltip.html(content)
+      tooltip.html(`
+        <div style="color: ${colorScale[d.group]}">
+          <strong>${d.name}</strong><br/>
+          ${d.group === 'track' || d.group === 'artist' ? `Popularity: ${d.popularity}` : ''}
+        </div>
+      `)
         .style('left', (event.pageX + 10) + 'px')
         .style('top', (event.pageY - 28) + 'px')
         .style('border-color', colorScale[d.group]);

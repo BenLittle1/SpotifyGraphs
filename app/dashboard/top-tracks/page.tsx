@@ -187,7 +187,6 @@ export default function TopTracksPage() {
               <li>• Click nodes to open in Spotify</li>
               <li>• Drag to rearrange the graph</li>
               <li>• Scroll to zoom in/out</li>
-              <li>• Pink genres are sized by connections</li>
             </ul>
           </div>
 
