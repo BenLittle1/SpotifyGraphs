@@ -2,6 +2,9 @@
 
 A beautiful web application that visualizes your Spotify listening data as interactive network graphs with neon aesthetics.
 
+## 🚀 Deployment Status
+✅ **Live at Railway** - Connected to GitHub for auto-deployment
+
 ## Features
 
 - **Multiple Visualization Types**: 
