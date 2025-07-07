@@ -68,6 +68,11 @@ export default function Home() {
             <p className="text-gray-400">Zoom, drag, and explore your music network</p>
           </div>
         </div>
+
+        {/* Version indicator for deployment testing */}
+        <div className="mt-8 text-xs text-gray-600">
+          v2.0 - GitHub Connected
+        </div>
       </div>
 
       <div className="absolute inset-0 overflow-hidden pointer-events-none">
