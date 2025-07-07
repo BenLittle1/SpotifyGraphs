@@ -38,45 +38,62 @@ const ForceGraph: React.FC<ForceGraphProps> = ({ data, width = 1200, height = 80
 
     svg.call(zoom);
 
-    // Create force simulation with heavy optimizations for many nodes
+    // Dynamic parameters based on node count
+    const nodeCount = data.nodes.length;
+    const isSmall = nodeCount <= 400;
+    const isMedium = nodeCount <= 800;
+    const isLarge = nodeCount <= 1200;
+    
+    // Adjust parameters based on size
+    const linkDistance = isSmall ? 120 : isMedium ? 100 : isLarge ? 80 : 60;
+    const genreLinkDistance = isSmall ? 150 : isMedium ? 130 : isLarge ? 100 : 80;
+    const chargeStrength = isSmall ? -600 : isMedium ? -400 : isLarge ? -250 : -150;
+    const genreChargeStrength = isSmall ? -800 : isMedium ? -600 : isLarge ? -400 : -250;
+    const distanceMax = isSmall ? 500 : isMedium ? 400 : isLarge ? 300 : 200;
+    const collisionPadding = isSmall ? 10 : isMedium ? 8 : isLarge ? 6 : 4;
+    const alphaDecay = isSmall ? 0.02 : isMedium ? 0.03 : isLarge ? 0.04 : 0.05;
+    const velocityDecay = isSmall ? 0.3 : isMedium ? 0.35 : isLarge ? 0.4 : 0.5;
+    const linkOpacity = isSmall ? 0.2 : isMedium ? 0.15 : isLarge ? 0.1 : 0.05;
+    const tickFrequency = isSmall ? 1 : isMedium ? 2 : isLarge ? 2 : 3;
+    const minLabelRadius = isSmall ? 10 : isMedium ? 12 : isLarge ? 15 : 18;
+
+    // Create force simulation with dynamic parameters
     const simulation = d3.forceSimulation<GraphNode>()
       .force('link', d3.forceLink<GraphNode, GraphLink>()
         .id((d) => d.id)
         .distance((d) => {
-          // Shorter distances for denser packing with 1500 nodes
           const source = data.nodes.find(n => n.id === (d.source as any).id || n.id === d.source);
           const target = data.nodes.find(n => n.id === (d.target as any).id || n.id === d.target);
           if (source?.group === 'genre' || target?.group === 'genre') {
-            return 120 / d.strength;
+            return genreLinkDistance / d.strength;
           }
-          return 80 / d.strength;
+          return linkDistance / d.strength;
         })
-        .strength((d) => d.strength * 0.5)) // Weaker links for 1500 nodes
+        .strength((d) => d.strength * (isSmall ? 0.8 : isMedium ? 0.7 : 0.5)))
       .force('charge', d3.forceManyBody<GraphNode>()
         .strength((d) => {
-          // Reduced repulsion for denser packing
           if (d.group === 'genre') {
-            return -400 - (d.radius || 10) * 5;
+            return genreChargeStrength - (d.radius || 10) * 5;
           }
-          return -150 - (d.radius || 10) * 2;
+          return chargeStrength - (d.radius || 10) * 2;
         })
-        .distanceMax(250)) // Much shorter distance for performance with 1500 nodes
+        .distanceMax(distanceMax))
       .force('center', d3.forceCenter(width / 2, height / 2))
       .force('collision', d3.forceCollide<GraphNode>()
-        .radius((d) => (d.radius || 10) + 5) // Less padding for tighter packing
-        .strength(0.5)
-        .iterations(1)) // Fewer iterations for performance
-      .alphaDecay(0.05) // Much faster settling for 1500 nodes
-      .velocityDecay(0.5); // Heavy damping for stability
+        .radius((d) => (d.radius || 10) + collisionPadding)
+        .strength(0.7)
+        .iterations(isSmall ? 2 : 1))
+      .alphaDecay(alphaDecay)
+      .velocityDecay(velocityDecay);
 
-    // Create links with very low opacity for clarity with many nodes
+    // Create links with dynamic opacity
     const link = container.append('g')
       .selectAll('line')
       .data(data.links)
       .enter().append('line')
       .attr('stroke', '#ffffff')
-      .attr('stroke-opacity', 0.05) // Very low opacity with 1500 nodes
-      .attr('stroke-width', (d) => d.strength);
+      .attr('stroke-opacity', linkOpacity)
+      .attr('stroke-width', (d) => d.strength * (isSmall ? 1.5 : 1));
 
     // Create node groups
     const node = container.append('g')
@@ -97,7 +114,7 @@ const ForceGraph: React.FC<ForceGraphProps> = ({ data, width = 1200, height = 80
       .attr('stroke-opacity', 0.8)
       .style('filter', 'url(#glow)');
 
-    // Add labels with standard sizing - hide small track labels for clarity
+    // Add labels with dynamic visibility
     node.append('text')
       .text((d) => d.name)
       .attr('x', 0)
@@ -108,11 +125,11 @@ const ForceGraph: React.FC<ForceGraphProps> = ({ data, width = 1200, height = 80
       .attr('font-weight', 'bold')
       .style('text-shadow', '0 0 10px rgba(255, 255, 255, 0.5)')
       .style('display', (d) => {
-        // Hide labels for very small nodes with 1500 nodes
-        if (d.group === 'track' && (d.radius || 10) < 15) {
+        // Dynamic label hiding based on node count
+        if (d.group === 'track' && (d.radius || 10) < minLabelRadius) {
           return 'none';
         }
-        if (d.group === 'artist' && (d.radius || 10) < 20) {
+        if (d.group === 'artist' && (d.radius || 10) < minLabelRadius + 5) {
           return 'none';
         }
         return 'block';
@@ -177,13 +194,13 @@ const ForceGraph: React.FC<ForceGraphProps> = ({ data, width = 1200, height = 80
     simulation.nodes(data.nodes);
     (simulation.force('link') as d3.ForceLink<GraphNode, GraphLink>).links(data.links);
 
-    // Update positions on tick with performance optimization
+    // Update positions on tick with dynamic frequency
     let tickCount = 0;
     simulation.on('tick', () => {
       tickCount++;
       
       // Update less frequently for better performance with many nodes
-      if (tickCount % 3 === 0) {
+      if (tickCount % tickFrequency === 0) {
         link
           .attr('x1', (d: any) => d.source.x)
           .attr('y1', (d: any) => d.source.y)
