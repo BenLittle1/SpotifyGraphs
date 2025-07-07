@@ -24,7 +24,7 @@ export function processSpotifyDataToGraph(
     artist.genres.forEach(genre => {
       if (!genreMap.has(genre)) {
         const popularity = genrePopularity.get(genre) || 1;
-        const maxGenrePopularity = Math.max(...genrePopularity.values());
+        const maxGenrePopularity = Math.max(...Array.from(genrePopularity.values()));
         
         // Genre nodes: range from 35 to 60 (much bigger than tracks)
         const genreRadius = 35 + (popularity / maxGenrePopularity) * 25;
