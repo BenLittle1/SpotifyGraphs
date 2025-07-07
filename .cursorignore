@@ -1,0 +1,6 @@
+# Ignore environment files to allow editing
+.env
+.env.local
+.env.development.local
+.env.test.local
+.env.production.local 
