@@ -38,17 +38,23 @@ export default function TopTracksPage() {
     try {
       const client = new SpotifyClient(session.accessToken);
       
-      // Fetch more data: top tracks + saved tracks for more variety
-      const [topTracks, savedTracks1, savedTracks2, savedTracks3] = await Promise.all([
+      // Fetch MUCH more data to reach 1500 nodes
+      const fetchPromises = [
         client.getTopTracks(50, timeRange),
-        client.getSavedTracks(50, 0),
-        client.getSavedTracks(50, 50),
-        client.getSavedTracks(50, 100)
-      ]);
+      ];
+      
+      // Fetch saved tracks in batches (up to 500 tracks)
+      for (let offset = 0; offset < 500; offset += 50) {
+        fetchPromises.push(client.getSavedTracks(50, offset));
+      }
+      
+      const allResults = await Promise.all(fetchPromises);
+      const topTracks = allResults[0];
+      const savedTracks = allResults.slice(1).flat();
       
       // Combine and deduplicate tracks
       const allTracksMap = new Map();
-      [...topTracks, ...savedTracks1, ...savedTracks2, ...savedTracks3].forEach(track => {
+      [topTracks, ...savedTracks].flat().forEach(track => {
         allTracksMap.set(track.id, track);
       });
       const uniqueTracks = Array.from(allTracksMap.values());
@@ -70,8 +76,8 @@ export default function TopTracksPage() {
       // Process data into graph format
       const fullGraphData = processSpotifyDataToGraph(uniqueTracks, artists);
       
-      // Filter to ~600 nodes for good performance while showing more data
-      const filteredData = filterGraphBySize(fullGraphData, 600);
+      // Filter to ~1500 nodes
+      const filteredData = filterGraphBySize(fullGraphData, 1500);
       
       setGraphData(filteredData);
     } catch (err) {
@@ -86,8 +92,9 @@ export default function TopTracksPage() {
     return (
       <div className="min-h-screen flex items-center justify-center bg-dark-bg">
         <div className="text-center">
-          <div className="text-neon-blue neon-text text-2xl mb-4">Loading your expanded music data...</div>
+          <div className="text-neon-blue neon-text text-2xl mb-4">Loading your massive music network...</div>
           <div className="w-16 h-16 border-4 border-neon-pink border-t-transparent rounded-full animate-spin mx-auto"></div>
+          <p className="text-gray-400 mt-4 text-sm">This may take a moment with 1500 nodes</p>
         </div>
       </div>
     );
@@ -121,7 +128,7 @@ export default function TopTracksPage() {
             >
               ← Back to Dashboard
             </Link>
-            <h1 className="text-2xl font-bold text-neon-green">Top Tracks Network (Expanded)</h1>
+            <h1 className="text-2xl font-bold text-neon-green">Top Tracks Network (Massive)</h1>
           </div>
           
           <div className="flex items-center gap-4">
@@ -194,7 +201,7 @@ export default function TopTracksPage() {
           <div className="border-t border-gray-700 pt-4 mt-4">
             <h3 className="text-lg font-semibold mb-3 text-neon-purple">Performance</h3>
             <p className="text-sm text-gray-400">
-              Displaying up to 600 nodes. The graph may take a moment to stabilize with this many elements.
+              Displaying up to 1500 nodes. The graph will take longer to stabilize with this many elements. Performance may vary based on your device.
             </p>
           </div>
         </div>

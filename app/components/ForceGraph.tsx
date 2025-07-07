@@ -38,45 +38,45 @@ const ForceGraph: React.FC<ForceGraphProps> = ({ data, width = 1200, height = 80
 
     svg.call(zoom);
 
-    // Create force simulation with optimizations for more nodes
+    // Create force simulation with heavy optimizations for many nodes
     const simulation = d3.forceSimulation<GraphNode>()
       .force('link', d3.forceLink<GraphNode, GraphLink>()
         .id((d) => d.id)
         .distance((d) => {
-          // Increase distance for links involving genre nodes
+          // Shorter distances for denser packing with 1500 nodes
           const source = data.nodes.find(n => n.id === (d.source as any).id || n.id === d.source);
           const target = data.nodes.find(n => n.id === (d.target as any).id || n.id === d.target);
           if (source?.group === 'genre' || target?.group === 'genre') {
-            return 150 / d.strength;
+            return 120 / d.strength;
           }
-          return 100 / d.strength;
+          return 80 / d.strength;
         })
-        .strength((d) => d.strength * 0.8)) // Slightly weaker links for better spread
+        .strength((d) => d.strength * 0.5)) // Weaker links for 1500 nodes
       .force('charge', d3.forceManyBody<GraphNode>()
         .strength((d) => {
-          // Stronger repulsion for genre nodes
+          // Reduced repulsion for denser packing
           if (d.group === 'genre') {
-            return -600 - (d.radius || 10) * 10;
+            return -400 - (d.radius || 10) * 5;
           }
-          return -250 - (d.radius || 10) * 3;
+          return -150 - (d.radius || 10) * 2;
         })
-        .distanceMax(400)) // Reduced distance for better performance with 600 nodes
+        .distanceMax(250)) // Much shorter distance for performance with 1500 nodes
       .force('center', d3.forceCenter(width / 2, height / 2))
       .force('collision', d3.forceCollide<GraphNode>()
-        .radius((d) => (d.radius || 10) + 8) // Slightly less padding for denser packing
-        .strength(0.7)
-        .iterations(2)) // More iterations for better collision detection
-      .alphaDecay(0.025) // Slightly faster settling for 600 nodes
-      .velocityDecay(0.35); // More damping to prevent jittering with more nodes
+        .radius((d) => (d.radius || 10) + 5) // Less padding for tighter packing
+        .strength(0.5)
+        .iterations(1)) // Fewer iterations for performance
+      .alphaDecay(0.05) // Much faster settling for 1500 nodes
+      .velocityDecay(0.5); // Heavy damping for stability
 
-    // Create links with reduced opacity for clarity with more nodes
+    // Create links with very low opacity for clarity with many nodes
     const link = container.append('g')
       .selectAll('line')
       .data(data.links)
       .enter().append('line')
       .attr('stroke', '#ffffff')
-      .attr('stroke-opacity', 0.1) // Lower opacity with more links
-      .attr('stroke-width', (d) => d.strength * 1.5);
+      .attr('stroke-opacity', 0.05) // Very low opacity with 1500 nodes
+      .attr('stroke-width', (d) => d.strength);
 
     // Create node groups
     const node = container.append('g')
@@ -108,8 +108,11 @@ const ForceGraph: React.FC<ForceGraphProps> = ({ data, width = 1200, height = 80
       .attr('font-weight', 'bold')
       .style('text-shadow', '0 0 10px rgba(255, 255, 255, 0.5)')
       .style('display', (d) => {
-        // Hide labels for small track nodes to reduce clutter
-        if (d.group === 'track' && (d.radius || 10) < 12) {
+        // Hide labels for very small nodes with 1500 nodes
+        if (d.group === 'track' && (d.radius || 10) < 15) {
+          return 'none';
+        }
+        if (d.group === 'artist' && (d.radius || 10) < 20) {
           return 'none';
         }
         return 'block';
@@ -180,7 +183,7 @@ const ForceGraph: React.FC<ForceGraphProps> = ({ data, width = 1200, height = 80
       tickCount++;
       
       // Update less frequently for better performance with many nodes
-      if (tickCount % 2 === 0) {
+      if (tickCount % 3 === 0) {
         link
           .attr('x1', (d: any) => d.source.x)
           .attr('y1', (d: any) => d.source.y)
