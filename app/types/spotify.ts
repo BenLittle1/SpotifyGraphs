@@ -1,23 +1,22 @@
-import { SimulationNodeDatum } from 'd3';
+import { SimulationNodeDatum, SimulationLinkDatum } from 'd3-force';
 
 export interface SpotifyTrack {
   id: string;
   name: string;
-  artists: {
+  artists: Array<{
     id: string;
     name: string;
-  }[];
+  }>;
   album: {
     id: string;
     name: string;
-    images: {
+    images: Array<{
       url: string;
       height: number;
       width: number;
-    }[];
+    }>;
   };
   popularity: number;
-  preview_url: string | null;
   external_urls: {
     spotify: string;
   };
@@ -28,11 +27,11 @@ export interface SpotifyArtist {
   name: string;
   genres: string[];
   popularity: number;
-  images: {
+  images: Array<{
     url: string;
     height: number;
     width: number;
-  }[];
+  }>;
   external_urls: {
     spotify: string;
   };
@@ -41,11 +40,11 @@ export interface SpotifyArtist {
 export interface GraphNode extends SimulationNodeDatum {
   id: string;
   name: string;
-  group: 'track' | 'artist' | 'genre';
+  group: 'genre' | 'artist' | 'track';
+  radius?: number;
   popularity?: number;
   imageUrl?: string;
   spotifyUrl?: string;
-  radius?: number;
 }
 
 export interface GraphLink {

@@ -281,7 +281,7 @@ export default function TopTracksPage() {
                   <p>
                     {viewMode === 'network' 
                       ? 'Traditional force-directed graph showing all connections equally.'
-                      : 'Three-tier layout: Genres at top, Artists in middle, Tracks at bottom. Nodes cluster around their primary connections.'}
+                      : 'Circular layout: Genres form inner circles, Artists orbit around their genres, and Tracks orbit around their artists, creating nested circular structures.'}
                   </p>
                 </div>
               </div>

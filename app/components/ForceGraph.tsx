@@ -60,10 +60,6 @@ const ForceGraph: React.FC<ForceGraphProps> = ({ data, width = 1200, height = 80
 
     // Hierarchical positioning for y-axis
     const isHierarchical = viewMode === 'hierarchical';
-    const verticalPadding = height * 0.15;
-    const genreY = verticalPadding;
-    const artistY = height / 2;
-    const trackY = height - verticalPadding;
 
     // Create force simulation with dynamic parameters
     const simulation = d3.forceSimulation<GraphNode>()
@@ -74,15 +70,17 @@ const ForceGraph: React.FC<ForceGraphProps> = ({ data, width = 1200, height = 80
           const target = data.nodes.find(n => n.id === (d.target as any).id || n.id === d.target);
           
           if (isHierarchical) {
-            // Shorter distances for hierarchical clustering
+            // Radial distances for circular clustering
             if ((source?.group === 'genre' && target?.group === 'artist') ||
                 (source?.group === 'artist' && target?.group === 'genre')) {
-              return (genreLinkDistance * 0.6) / d.strength;
+              return 120; // Fixed distance for genre-artist
             }
             if ((source?.group === 'artist' && target?.group === 'track') ||
                 (source?.group === 'track' && target?.group === 'artist')) {
-              return (linkDistance * 0.6) / d.strength;
+              return 100; // Fixed distance for artist-track
             }
+            // Much longer distances for non-hierarchical connections
+            return 300;
           }
           
           if (source?.group === 'genre' || target?.group === 'genre') {
@@ -95,26 +93,31 @@ const ForceGraph: React.FC<ForceGraphProps> = ({ data, width = 1200, height = 80
             const source = data.nodes.find(n => n.id === (d.source as any).id || n.id === d.source);
             const target = data.nodes.find(n => n.id === (d.target as any).id || n.id === d.target);
             
-            // Stronger attraction for parent-child relationships
+            // Strong attraction for parent-child relationships
             if ((source?.group === 'genre' && target?.group === 'artist') ||
                 (source?.group === 'artist' && target?.group === 'genre')) {
-              return d.strength * 1.2;
+              return 0.8;
             }
             if ((source?.group === 'artist' && target?.group === 'track') ||
                 (source?.group === 'track' && target?.group === 'artist')) {
-              return d.strength * 1.2;
+              return 0.6;
             }
+            // Very weak for other connections
+            return 0.05;
           }
           return d.strength * (isSmall ? 0.8 : isMedium ? 0.7 : 0.5);
         }))
       .force('charge', d3.forceManyBody<GraphNode>()
         .strength((d) => {
           if (isHierarchical) {
-            // Reduced repulsion for hierarchical clustering
+            // Different charge based on node type for circular layout
             if (d.group === 'genre') {
-              return (genreChargeStrength * 0.5) - (d.radius || 10) * 3;
+              return -1000; // Strong repulsion for genres to spread them out
             }
-            return (chargeStrength * 0.5) - (d.radius || 10);
+            if (d.group === 'artist') {
+              return -300; // Medium repulsion for artists
+            }
+            return -100; // Light repulsion for tracks
           }
           
           if (d.group === 'genre') {
@@ -122,8 +125,7 @@ const ForceGraph: React.FC<ForceGraphProps> = ({ data, width = 1200, height = 80
           }
           return chargeStrength - (d.radius || 10) * 2;
         })
-        .distanceMax(distanceMax))
-      .force('center', d3.forceCenter(width / 2, height / 2))
+        .distanceMax(isHierarchical ? 600 : distanceMax))
       .force('collision', d3.forceCollide<GraphNode>()
         .radius((d) => (d.radius || 10) + (isHierarchical ? collisionPadding * 0.7 : collisionPadding))
         .strength(0.7)
@@ -131,22 +133,100 @@ const ForceGraph: React.FC<ForceGraphProps> = ({ data, width = 1200, height = 80
       .alphaDecay(alphaDecay)
       .velocityDecay(velocityDecay);
 
-    // Add vertical positioning forces for hierarchical view
-    if (isHierarchical) {
-      simulation
-        .force('y', d3.forceY<GraphNode>()
-          .y((d) => {
-            if (d.group === 'genre') return genreY;
-            if (d.group === 'artist') return artistY;
-            return trackY;
-          })
-          .strength(0.5));
+    // Add center force for non-hierarchical view
+    if (!isHierarchical) {
+      simulation.force('center', d3.forceCenter(width / 2, height / 2));
+    } else {
+      // For hierarchical view, use radial positioning
       
-      // Add slight horizontal spreading to prevent overlap
-      simulation
-        .force('x', d3.forceX<GraphNode>()
-          .x(width / 2)
-          .strength(0.05));
+      // First, find primary connections for clustering
+      const nodeParents = new Map<string, string>();
+      
+      // Map artists to their primary genre (first genre)
+      data.nodes.filter(n => n.group === 'artist').forEach(artist => {
+        const genreLink = data.links.find(l => 
+          (l.source === artist.id && data.nodes.find(n => n.id === l.target)?.group === 'genre') ||
+          (l.target === artist.id && data.nodes.find(n => n.id === l.source)?.group === 'genre')
+        );
+        if (genreLink) {
+          const genreId = genreLink.source === artist.id ? genreLink.target : genreLink.source;
+          nodeParents.set(artist.id, genreId as string);
+        }
+      });
+      
+      // Map tracks to their primary artist (first artist)
+      data.nodes.filter(n => n.group === 'track').forEach(track => {
+        const artistLink = data.links.find(l => 
+          (l.source === track.id && data.nodes.find(n => n.id === l.target)?.group === 'artist') ||
+          (l.target === track.id && data.nodes.find(n => n.id === l.source)?.group === 'artist')
+        );
+        if (artistLink) {
+          const artistId = artistLink.source === track.id ? artistLink.target : artistLink.source;
+          nodeParents.set(track.id, artistId as string);
+        }
+      });
+      
+      // Position genres in a circle
+      const genres = data.nodes.filter(n => n.group === 'genre');
+      const genreCount = genres.length;
+      const genreRadius = Math.min(width, height) * 0.25;
+      
+      // Custom positioning force
+      const positionForce = (alpha: number) => {
+        data.nodes.forEach((d: GraphNode) => {
+          if (d.group === 'genre') {
+            // Position genres in a circle
+            const index = genres.findIndex(g => g.id === d.id);
+            const angle = (index / genreCount) * 2 * Math.PI;
+            const targetX = width / 2 + genreRadius * Math.cos(angle);
+            const targetY = height / 2 + genreRadius * Math.sin(angle);
+            
+            d.vx = (d.vx || 0) + (targetX - (d.x || 0)) * alpha * 0.5;
+            d.vy = (d.vy || 0) + (targetY - (d.y || 0)) * alpha * 0.5;
+          } else if (d.group === 'artist') {
+            // Position artists around their genre
+            const parentId = nodeParents.get(d.id);
+            if (parentId) {
+              const parent = data.nodes.find(n => n.id === parentId);
+              if (parent && parent.x !== undefined && parent.y !== undefined) {
+                const dx = (d.x || 0) - parent.x;
+                const dy = (d.y || 0) - parent.y;
+                const distance = Math.sqrt(dx * dx + dy * dy);
+                const targetDistance = 100;
+                
+                if (distance > 0) {
+                  const factor = (targetDistance - distance) / distance * alpha * 0.3;
+                  d.vx = (d.vx || 0) + dx * factor;
+                  d.vy = (d.vy || 0) + dy * factor;
+                }
+              }
+            }
+          } else if (d.group === 'track') {
+            // Position tracks around their artist
+            const parentId = nodeParents.get(d.id);
+            if (parentId) {
+              const parent = data.nodes.find(n => n.id === parentId);
+              if (parent && parent.x !== undefined && parent.y !== undefined) {
+                const dx = (d.x || 0) - parent.x;
+                const dy = (d.y || 0) - parent.y;
+                const distance = Math.sqrt(dx * dx + dy * dy);
+                const targetDistance = 80;
+                
+                if (distance > 0) {
+                  const factor = (targetDistance - distance) / distance * alpha * 0.3;
+                  d.vx = (d.vx || 0) + dx * factor;
+                  d.vy = (d.vy || 0) + dy * factor;
+                }
+              }
+            }
+          }
+        });
+      };
+      
+      simulation.force('position', positionForce as any);
+      
+      // Add a gentle centering force
+      simulation.force('center', d3.forceCenter(width / 2, height / 2).strength(0.02));
     }
 
     // Create links with dynamic opacity
@@ -197,42 +277,6 @@ const ForceGraph: React.FC<ForceGraphProps> = ({ data, width = 1200, height = 80
         }
         return 'block';
       });
-
-    // Add hierarchy labels for hierarchical view
-    if (isHierarchical) {
-      const labels = container.append('g')
-        .attr('class', 'hierarchy-labels');
-      
-      labels.append('text')
-        .attr('x', 50)
-        .attr('y', genreY)
-        .attr('text-anchor', 'start')
-        .attr('fill', colorScale.genre)
-        .attr('font-size', '14px')
-        .attr('font-weight', 'bold')
-        .attr('opacity', 0.7)
-        .text('GENRES');
-      
-      labels.append('text')
-        .attr('x', 50)
-        .attr('y', artistY)
-        .attr('text-anchor', 'start')
-        .attr('fill', colorScale.artist)
-        .attr('font-size', '14px')
-        .attr('font-weight', 'bold')
-        .attr('opacity', 0.7)
-        .text('ARTISTS');
-      
-      labels.append('text')
-        .attr('x', 50)
-        .attr('y', trackY)
-        .attr('text-anchor', 'start')
-        .attr('fill', colorScale.track)
-        .attr('font-size', '14px')
-        .attr('font-weight', 'bold')
-        .attr('opacity', 0.7)
-        .text('TRACKS');
-    }
 
     // Add glow filter
     const defs = svg.append('defs');
