@@ -38,7 +38,7 @@ const ForceGraph: React.FC<ForceGraphProps> = ({ data, width = 1200, height = 80
 
     svg.call(zoom);
 
-    // Create force simulation with adjusted forces for larger genre nodes
+    // Create force simulation with optimizations for more nodes
     const simulation = d3.forceSimulation<GraphNode>()
       .force('link', d3.forceLink<GraphNode, GraphLink>()
         .id((d) => d.id)
@@ -51,28 +51,32 @@ const ForceGraph: React.FC<ForceGraphProps> = ({ data, width = 1200, height = 80
           }
           return 100 / d.strength;
         })
-        .strength((d) => d.strength))
+        .strength((d) => d.strength * 0.8)) // Slightly weaker links for better spread
       .force('charge', d3.forceManyBody<GraphNode>()
         .strength((d) => {
           // Stronger repulsion for genre nodes
           if (d.group === 'genre') {
-            return -500 - (d.radius || 10) * 10;
+            return -600 - (d.radius || 10) * 10;
           }
-          return -300 - (d.radius || 10) * 5;
-        }))
+          return -250 - (d.radius || 10) * 3;
+        })
+        .distanceMax(500)) // Limit force calculation distance for performance
       .force('center', d3.forceCenter(width / 2, height / 2))
       .force('collision', d3.forceCollide<GraphNode>()
-        .radius((d) => (d.radius || 10) + 10) // More padding for all nodes
-        .strength(0.8));
+        .radius((d) => (d.radius || 10) + 8) // Slightly less padding for denser packing
+        .strength(0.7)
+        .iterations(2)) // More iterations for better collision detection
+      .alphaDecay(0.02) // Faster settling for performance
+      .velocityDecay(0.3); // More damping to prevent jittering
 
-    // Create links
+    // Create links with reduced opacity for clarity with more nodes
     const link = container.append('g')
       .selectAll('line')
       .data(data.links)
       .enter().append('line')
       .attr('stroke', '#ffffff')
-      .attr('stroke-opacity', 0.2)
-      .attr('stroke-width', (d) => d.strength * 2);
+      .attr('stroke-opacity', 0.15) // Lower opacity with more links
+      .attr('stroke-width', (d) => d.strength * 1.5);
 
     // Create node groups
     const node = container.append('g')
@@ -93,7 +97,7 @@ const ForceGraph: React.FC<ForceGraphProps> = ({ data, width = 1200, height = 80
       .attr('stroke-opacity', (d) => d.group === 'genre' ? 1 : 0.8)
       .style('filter', (d) => d.group === 'genre' ? 'url(#glow-strong)' : 'url(#glow)');
 
-    // Add labels with different sizing for genres
+    // Add labels with different sizing for genres - hide small track labels for clarity
     node.append('text')
       .text((d) => d.name)
       .attr('x', 0)
@@ -102,7 +106,14 @@ const ForceGraph: React.FC<ForceGraphProps> = ({ data, width = 1200, height = 80
       .attr('fill', '#ffffff')
       .attr('font-size', (d) => d.group === 'genre' ? '16px' : '12px')
       .attr('font-weight', 'bold')
-      .style('text-shadow', '0 0 10px rgba(255, 255, 255, 0.5)');
+      .style('text-shadow', '0 0 10px rgba(255, 255, 255, 0.5)')
+      .style('display', (d) => {
+        // Hide labels for small track nodes to reduce clutter
+        if (d.group === 'track' && (d.radius || 10) < 12) {
+          return 'none';
+        }
+        return 'block';
+      });
 
     // Add glow filters
     const defs = svg.append('defs');
@@ -145,7 +156,8 @@ const ForceGraph: React.FC<ForceGraphProps> = ({ data, width = 1200, height = 80
       .style('border-radius', '5px')
       .style('color', '#ffffff')
       .style('pointer-events', 'none')
-      .style('opacity', 0);
+      .style('opacity', 0)
+      .style('z-index', 1000);
 
     node.on('mouseover', (event, d) => {
       tooltip.transition()
@@ -186,16 +198,22 @@ const ForceGraph: React.FC<ForceGraphProps> = ({ data, width = 1200, height = 80
     simulation.nodes(data.nodes);
     (simulation.force('link') as d3.ForceLink<GraphNode, GraphLink>).links(data.links);
 
-    // Update positions on tick
+    // Update positions on tick with performance optimization
+    let tickCount = 0;
     simulation.on('tick', () => {
-      link
-        .attr('x1', (d: any) => d.source.x)
-        .attr('y1', (d: any) => d.source.y)
-        .attr('x2', (d: any) => d.target.x)
-        .attr('y2', (d: any) => d.target.y);
+      tickCount++;
+      
+      // Update less frequently for better performance with many nodes
+      if (tickCount % 2 === 0) {
+        link
+          .attr('x1', (d: any) => d.source.x)
+          .attr('y1', (d: any) => d.source.y)
+          .attr('x2', (d: any) => d.target.x)
+          .attr('y2', (d: any) => d.target.y);
 
-      node
-        .attr('transform', (d) => `translate(${d.x},${d.y})`);
+        node
+          .attr('transform', (d) => `translate(${d.x},${d.y})`);
+      }
     });
 
     // Drag functions

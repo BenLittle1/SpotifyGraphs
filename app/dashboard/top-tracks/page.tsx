@@ -38,28 +38,39 @@ export default function TopTracksPage() {
     try {
       const client = new SpotifyClient(session.accessToken);
       
-      // Fetch top tracks
-      const tracks = await client.getTopTracks(50, timeRange);
+      // Fetch more data: top tracks + saved tracks for more variety
+      const [topTracks, savedTracks1, savedTracks2] = await Promise.all([
+        client.getTopTracks(50, timeRange),
+        client.getSavedTracks(50, 0),
+        client.getSavedTracks(50, 50)
+      ]);
       
-      if (tracks.length === 0) {
-        setError('No top tracks found. Try listening to more music!');
+      // Combine and deduplicate tracks
+      const allTracksMap = new Map();
+      [...topTracks, ...savedTracks1, ...savedTracks2].forEach(track => {
+        allTracksMap.set(track.id, track);
+      });
+      const uniqueTracks = Array.from(allTracksMap.values());
+      
+      if (uniqueTracks.length === 0) {
+        setError('No tracks found. Try listening to more music!');
         setLoading(false);
         return;
       }
 
-      // Get unique artist IDs from tracks
+      // Get unique artist IDs from all tracks
       const artistIds = Array.from(new Set(
-        tracks.flatMap(track => track.artists.map(artist => artist.id))
+        uniqueTracks.flatMap(track => track.artists.map(artist => artist.id))
       ));
 
       // Fetch artist details for genres
       const artists = await client.getMultipleArtists(artistIds);
 
       // Process data into graph format
-      const fullGraphData = processSpotifyDataToGraph(tracks, artists);
+      const fullGraphData = processSpotifyDataToGraph(uniqueTracks, artists);
       
-      // Filter to ~200 nodes for performance
-      const filteredData = filterGraphBySize(fullGraphData, 200);
+      // Filter to ~400 nodes for good performance while showing more data
+      const filteredData = filterGraphBySize(fullGraphData, 400);
       
       setGraphData(filteredData);
     } catch (err) {
@@ -74,7 +85,7 @@ export default function TopTracksPage() {
     return (
       <div className="min-h-screen flex items-center justify-center bg-dark-bg">
         <div className="text-center">
-          <div className="text-neon-blue neon-text text-2xl mb-4">Loading your music data...</div>
+          <div className="text-neon-blue neon-text text-2xl mb-4">Loading your expanded music data...</div>
           <div className="w-16 h-16 border-4 border-neon-pink border-t-transparent rounded-full animate-spin mx-auto"></div>
         </div>
       </div>
@@ -109,7 +120,7 @@ export default function TopTracksPage() {
             >
               ← Back to Dashboard
             </Link>
-            <h1 className="text-2xl font-bold text-neon-green">Top Tracks Network</h1>
+            <h1 className="text-2xl font-bold text-neon-green">Top Tracks Network (Expanded)</h1>
           </div>
           
           <div className="flex items-center gap-4">
@@ -160,7 +171,7 @@ export default function TopTracksPage() {
             <h3 className="text-lg font-semibold mb-3 text-neon-yellow">Stats</h3>
             {graphData && (
               <div className="space-y-2 text-sm text-gray-400">
-                <div>Total Nodes: {graphData.nodes.length}</div>
+                <div className="font-semibold text-white">Total Nodes: {graphData.nodes.length}</div>
                 <div>Total Connections: {graphData.links.length}</div>
                 <div>Tracks: {graphData.nodes.filter(n => n.group === 'track').length}</div>
                 <div>Artists: {graphData.nodes.filter(n => n.group === 'artist').length}</div>
@@ -176,7 +187,15 @@ export default function TopTracksPage() {
               <li>• Click nodes to open in Spotify</li>
               <li>• Drag to rearrange the graph</li>
               <li>• Scroll to zoom in/out</li>
+              <li>• Pink genres are sized by connections</li>
             </ul>
+          </div>
+
+          <div className="border-t border-gray-700 pt-4 mt-4">
+            <h3 className="text-lg font-semibold mb-3 text-neon-purple">Performance</h3>
+            <p className="text-sm text-gray-400">
+              Displaying up to 400 nodes. The graph may take a moment to stabilize with this many elements.
+            </p>
           </div>
         </div>
       </div>
