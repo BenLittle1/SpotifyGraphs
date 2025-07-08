@@ -4,13 +4,14 @@ import { SimulationNodeDatum } from 'd3';
 export interface ForceTreeNode extends SimulationNodeDatum {
   id: string;
   name: string;
-  type: 'genre' | 'artist' | 'track';
+  type: 'genre' | 'artist' | 'track' | 'cluster';
   value: number;
   popularity?: number;
   imageUrl?: string;
   spotifyUrl?: string;
   depth: number;
   parent?: string;
+  invisible?: boolean; // Mark nodes as invisible for clustering
 }
 
 export interface ForceTreeLink {
@@ -83,7 +84,7 @@ export function processSpotifyDataToForceTree(
     .sort((a, b) => (genrePopularity.get(b) || 0) - (genrePopularity.get(a) || 0))
     .slice(0, maxGenres);
 
-  // Create genre nodes
+  // Create genre nodes and clustering nodes
   sortedGenres.forEach(genre => {
     const genreId = `genre-${genre}`;
     const genreNode: ForceTreeNode = {
@@ -95,6 +96,19 @@ export function processSpotifyDataToForceTree(
     };
     nodes.push(genreNode);
     nodeMap.set(genreId, genreNode);
+
+    // Create invisible clustering node for this genre
+    const clusterId = `cluster-${genre}`;
+    const clusterNode: ForceTreeNode = {
+      id: clusterId,
+      name: `${genre} cluster`,
+      type: 'cluster',
+      value: genrePopularity.get(genre) || 0,
+      depth: 0.5, // Between genre and artist
+      invisible: true,
+    };
+    nodes.push(clusterNode);
+    nodeMap.set(clusterId, clusterNode);
   });
 
   // Create artist nodes and links
@@ -182,6 +196,16 @@ export function processSpotifyDataToForceTree(
           target: artistNodeId,
           value: tracksInGenre.length
         });
+
+        // Create link from clustering node to artist for natural grouping
+        const clusterId = `cluster-${genre}`;
+        if (nodeMap.has(clusterId)) {
+          links.push({
+            source: clusterId,
+            target: artistNodeId,
+            value: tracksInGenre.length * 1.5 // Stronger clustering force
+          });
+        }
       }
     });
   });

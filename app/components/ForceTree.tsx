@@ -114,7 +114,8 @@ const ForceTree: React.FC<ForceTreeProps> = ({
     const nodeColors: { [key: string]: string } = {
       genre: '#ff00ff', // Magenta/Pink for genres
       artist: '#A855F7', // Dark neon purple for artists
-      track: '#0080FF'  // Vibrant electric blue for tracks
+      track: '#0080FF', // Vibrant electric blue for tracks
+      cluster: '#FFFFFF' // Invisible clustering nodes
     };
 
     // Size scales
@@ -140,6 +141,11 @@ const ForceTree: React.FC<ForceTreeProps> = ({
         .strength(0.5))
       .force('charge', d3.forceManyBody<ForceTreeNode>()
         .strength(d => {
+          // Clustering nodes have minimal charge to avoid interference
+          if (d.type === 'cluster') {
+            return -10; // Very weak repulsion
+          }
+          
           // Adjust charge strength based on total node count and user setting
           const nodeCount = data.nodes.length;
           let scaleFactor = 1;
@@ -155,6 +161,11 @@ const ForceTree: React.FC<ForceTreeProps> = ({
       .force('center', d3.forceCenter(width / 2, height / 2).strength(gravity))
       .force('collision', d3.forceCollide<ForceTreeNode>()
         .radius(d => {
+          // Clustering nodes have minimal collision radius
+          if (d.type === 'cluster') {
+            return 1; // Very small collision radius
+          }
+          
           const baseRadius = d.type === 'genre' ? 
             genreSizeScale(d.value) + 10 : 
             sizeScale(d.popularity || 50) + 5;
@@ -172,12 +183,17 @@ const ForceTree: React.FC<ForceTreeProps> = ({
           else if (nodeCount > 800) distanceScale = 1.3;
           
           if (d.type === 'genre') return 0;
+          if (d.type === 'cluster') return 100 * distanceScale; // Between genre and artist
           if (d.type === 'artist') return 200 * distanceScale;
           return 350 * distanceScale;
         },
         width / 2,
         height / 2
-      ).strength(d => d.type === 'genre' ? 0.8 : 0.3));
+      ).strength(d => {
+        if (d.type === 'genre') return 0.8;
+        if (d.type === 'cluster') return 0.1; // Very weak radial force
+        return 0.3;
+      }));
 
     simulationRef.current = simulation;
 
@@ -192,11 +208,12 @@ const ForceTree: React.FC<ForceTreeProps> = ({
       .attr('stroke-opacity', linkOpacity)
       .attr('stroke-width', d => Math.sqrt(d.value / 20));
 
-    // Create node groups
+    // Create node groups (filter out invisible clustering nodes)
+    const visibleNodes = data.nodes.filter(node => !node.invisible);
     const node = g.append('g')
       .attr('class', 'nodes')
       .selectAll('g')
-      .data(data.nodes)
+      .data(visibleNodes)
       .enter().append('g')
       .attr('class', 'node')
       .attr('cursor', 'pointer')

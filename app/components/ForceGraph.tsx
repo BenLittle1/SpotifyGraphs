@@ -26,6 +26,7 @@ const ForceGraph: React.FC<ForceGraphProps> = ({ data, width = 1200, height = 80
       genre: '#FF10F0', // neon-pink
       artist: '#A855F7', // dark neon purple
       track: '#0080FF', // vibrant electric blue
+      cluster: '#FFFFFF', // invisible clustering nodes
     };
 
     // Create container for zoom
@@ -110,6 +111,11 @@ const ForceGraph: React.FC<ForceGraphProps> = ({ data, width = 1200, height = 80
         }))
       .force('charge', d3.forceManyBody<GraphNode>()
         .strength((d) => {
+          // Clustering nodes have minimal charge to avoid interference
+          if (d.group === 'cluster') {
+            return -10; // Very weak repulsion
+          }
+          
           if (isHierarchical) {
             // Different charge based on node type and size for circular layout
             if (d.group === 'genre') {
@@ -132,6 +138,11 @@ const ForceGraph: React.FC<ForceGraphProps> = ({ data, width = 1200, height = 80
         .distanceMax(isHierarchical ? 600 : distanceMax))
       .force('collision', d3.forceCollide<GraphNode>()
         .radius((d) => {
+          // Clustering nodes have minimal collision radius
+          if (d.group === 'cluster') {
+            return 1; // Very small collision radius
+          }
+          
           let radius;
           if (isHierarchical) {
             // Use the same radius calculation as the visual nodes
@@ -259,10 +270,11 @@ const ForceGraph: React.FC<ForceGraphProps> = ({ data, width = 1200, height = 80
       .attr('stroke-opacity', linkOpacity)
       .attr('stroke-width', (d) => d.strength * (isSmall ? 1.5 : 1));
 
-    // Create node groups
+    // Create node groups (filter out invisible clustering nodes)
+    const visibleNodes = data.nodes.filter(node => !node.invisible);
     const node = container.append('g')
       .selectAll('g')
-      .data(data.nodes)
+      .data(visibleNodes)
       .enter().append('g')
       .call(d3.drag<SVGGElement, GraphNode>()
         .on('start', dragstarted)

@@ -10,6 +10,7 @@ export function processSpotifyDataToGraph(
 
   // Create genre nodes first
   const genreMap = new Map<string, GraphNode>();
+  const clusterMap = new Map<string, GraphNode>();
   artists.forEach(artist => {
     artist.genres.forEach(genre => {
       if (!genreMap.has(genre)) {
@@ -22,6 +23,18 @@ export function processSpotifyDataToGraph(
         genreMap.set(genre, genreNode);
         nodeMap.set(genreNode.id, genreNode);
         nodes.push(genreNode);
+
+        // Create invisible clustering node for this genre
+        const clusterNode: GraphNode = {
+          id: `cluster-${genre}`,
+          name: `${genre} cluster`,
+          group: 'cluster',
+          radius: 5,
+          invisible: true,
+        };
+        clusterMap.set(genre, clusterNode);
+        nodeMap.set(clusterNode.id, clusterNode);
+        nodes.push(clusterNode);
       }
     });
   });
@@ -52,6 +65,16 @@ export function processSpotifyDataToGraph(
           source: artistNode.id,
           target: genreNode.id,
           strength: 0.5,
+        });
+      }
+
+      // Link artists to their clustering nodes for natural grouping
+      const clusterNode = clusterMap.get(genre);
+      if (clusterNode) {
+        links.push({
+          source: artistNode.id,
+          target: clusterNode.id,
+          strength: 0.8, // Stronger clustering force
         });
       }
     });

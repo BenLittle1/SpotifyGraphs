@@ -40,11 +40,12 @@ export interface SpotifyArtist {
 export interface GraphNode extends SimulationNodeDatum {
   id: string;
   name: string;
-  group: 'genre' | 'artist' | 'track';
+  group: 'genre' | 'artist' | 'track' | 'cluster';
   radius?: number;
   popularity?: number;
   imageUrl?: string;
   spotifyUrl?: string;
+  invisible?: boolean; // Mark nodes as invisible for clustering
 }
 
 export interface GraphLink {
