@@ -20,6 +20,9 @@ export default function ForceTreePage() {
   const [chargeStrength, setChargeStrength] = useState(1.0);
   const [collisionRadius, setCollisionRadius] = useState(1.0);
   const [linkDistance, setLinkDistance] = useState(1.0);
+  const [gravity, setGravity] = useState(1.0);
+  const [nodeScale, setNodeScale] = useState(1.0);
+  const [linkOpacity, setLinkOpacity] = useState(0.4);
 
   useEffect(() => {
     if (status === 'loading') return;
@@ -272,6 +275,66 @@ export default function ForceTreePage() {
               </div>
             </div>
 
+            {/* Gravity Slider */}
+            <div>
+              <label className="block text-sm font-medium text-gray-400 mb-2">
+                Gravity: {gravity.toFixed(2)}
+              </label>
+              <input
+                type="range"
+                min="0.0"
+                max="2.0"
+                step="0.1"
+                value={gravity}
+                onChange={(e) => setGravity(Number(e.target.value))}
+                className="w-full h-2 bg-gray-700 rounded-lg appearance-none cursor-pointer slider"
+              />
+              <div className="flex justify-between text-xs text-gray-500 mt-1">
+                <span>Free Float</span>
+                <span>Strong Pull</span>
+              </div>
+            </div>
+
+            {/* Node Scale Slider */}
+            <div>
+              <label className="block text-sm font-medium text-gray-400 mb-2">
+                Node Scale: {nodeScale.toFixed(2)}
+              </label>
+              <input
+                type="range"
+                min="0.5"
+                max="2.0"
+                step="0.1"
+                value={nodeScale}
+                onChange={(e) => setNodeScale(Number(e.target.value))}
+                className="w-full h-2 bg-gray-700 rounded-lg appearance-none cursor-pointer slider"
+              />
+              <div className="flex justify-between text-xs text-gray-500 mt-1">
+                <span>Small</span>
+                <span>Large</span>
+              </div>
+            </div>
+
+            {/* Link Opacity Slider */}
+            <div>
+              <label className="block text-sm font-medium text-gray-400 mb-2">
+                Link Opacity: {(linkOpacity * 100).toFixed(0)}%
+              </label>
+              <input
+                type="range"
+                min="0.1"
+                max="1.0"
+                step="0.05"
+                value={linkOpacity}
+                onChange={(e) => setLinkOpacity(Number(e.target.value))}
+                className="w-full h-2 bg-gray-700 rounded-lg appearance-none cursor-pointer slider"
+              />
+              <div className="flex justify-between text-xs text-gray-500 mt-1">
+                <span>Faint</span>
+                <span>Bold</span>
+              </div>
+            </div>
+
             {/* Update Button */}
             <button
               onClick={fetchData}
@@ -413,6 +476,9 @@ export default function ForceTreePage() {
               chargeStrength={chargeStrength}
               collisionRadius={collisionRadius}
               linkDistance={linkDistance}
+              gravity={gravity}
+              nodeScale={nodeScale}
+              linkOpacity={linkOpacity}
             />
           )}
         </div>

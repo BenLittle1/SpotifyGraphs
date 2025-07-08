@@ -14,9 +14,22 @@ interface ForceTreeProps {
   chargeStrength?: number;
   collisionRadius?: number;
   linkDistance?: number;
+  gravity?: number;
+  nodeScale?: number;
+  linkOpacity?: number;
 }
 
-const ForceTree: React.FC<ForceTreeProps> = ({ data, width, height, chargeStrength = 1.0, collisionRadius = 1.0, linkDistance = 1.0 }) => {
+const ForceTree: React.FC<ForceTreeProps> = ({ 
+  data, 
+  width, 
+  height, 
+  chargeStrength = 1.0, 
+  collisionRadius = 1.0, 
+  linkDistance = 1.0,
+  gravity = 1.0,
+  nodeScale = 1.0,
+  linkOpacity = 0.4
+}) => {
   const svgRef = useRef<SVGSVGElement>(null);
   const [hoveredNode, setHoveredNode] = useState<ForceTreeNode | null>(null);
   const [selectedNode, setSelectedNode] = useState<ForceTreeNode | null>(null);
@@ -103,13 +116,13 @@ const ForceTree: React.FC<ForceTreeProps> = ({ data, width, height, chargeStreng
           if (d.type === 'artist') return -300 * scaleFactor * chargeStrength;
           return -100 * scaleFactor * chargeStrength;
         }))
-      .force('center', d3.forceCenter(width / 2, height / 2))
+      .force('center', d3.forceCenter(width / 2, height / 2).strength(gravity))
       .force('collision', d3.forceCollide<ForceTreeNode>()
         .radius(d => {
           const baseRadius = d.type === 'genre' ? 
             genreSizeScale(d.value) + 10 : 
             sizeScale(d.popularity || 50) + 5;
-          return baseRadius * collisionRadius;
+          return baseRadius * collisionRadius * nodeScale;
         }))
       // Add radial force to create tree-like structure
       .force('radial', d3.forceRadial<ForceTreeNode>(
@@ -138,7 +151,7 @@ const ForceTree: React.FC<ForceTreeProps> = ({ data, width, height, chargeStreng
       .enter().append('line')
       .attr('class', 'link')
       .attr('stroke', '#444')
-      .attr('stroke-opacity', 0.4)
+      .attr('stroke-opacity', linkOpacity)
       .attr('stroke-width', d => Math.sqrt(d.value / 20));
 
     // Create node groups
@@ -157,8 +170,10 @@ const ForceTree: React.FC<ForceTreeProps> = ({ data, width, height, chargeStreng
     // Add circles for nodes
     node.append('circle')
       .attr('r', d => {
-        if (d.type === 'genre') return genreSizeScale(d.value);
-        return sizeScale(d.popularity || 50);
+        const baseRadius = d.type === 'genre' ? 
+          genreSizeScale(d.value) : 
+          sizeScale(d.popularity || 50);
+        return baseRadius * nodeScale;
       })
       .attr('fill', d => nodeColors[d.type])
       .attr('fill-opacity', 0.8)
@@ -205,7 +220,7 @@ const ForceTree: React.FC<ForceTreeProps> = ({ data, width, height, chargeStreng
             const baseRadius = d.type === 'genre' ? 
               genreSizeScale(d.value) : 
               sizeScale(d.popularity || 50);
-            return downstream.has(d.id) ? baseRadius * 1.2 : baseRadius;
+            return downstream.has(d.id) ? baseRadius * nodeScale * 1.2 : baseRadius * nodeScale;
           });
         
         // Update label opacity
@@ -249,8 +264,10 @@ const ForceTree: React.FC<ForceTreeProps> = ({ data, width, height, chargeStreng
           .duration(200)
           .attr('fill-opacity', 0.8)
           .attr('r', d => {
-            if (d.type === 'genre') return genreSizeScale(d.value);
-            return sizeScale(d.popularity || 50);
+            const baseRadius = d.type === 'genre' ? 
+              genreSizeScale(d.value) : 
+              sizeScale(d.popularity || 50);
+            return baseRadius * nodeScale;
           });
         
         // Reset label opacity
@@ -262,7 +279,7 @@ const ForceTree: React.FC<ForceTreeProps> = ({ data, width, height, chargeStreng
         // Reset links
         link.transition()
           .duration(200)
-          .attr('stroke-opacity', 0.4)
+          .attr('stroke-opacity', linkOpacity)
           .attr('stroke', '#444');
       })
       .on('click', function(event, d) {
@@ -320,7 +337,7 @@ const ForceTree: React.FC<ForceTreeProps> = ({ data, width, height, chargeStreng
     return () => {
       simulation.stop();
     };
-  }, [data, width, height, chargeStrength, collisionRadius, linkDistance]);
+  }, [data, width, height, chargeStrength, collisionRadius, linkDistance, gravity, nodeScale, linkOpacity]);
 
   return (
     <div className="relative">
