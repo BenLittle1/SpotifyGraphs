@@ -219,81 +219,10 @@ const ForceTree: React.FC<ForceTreeProps> = ({
         setHoveredNode(d);
         const downstream = findDownstreamNodes(d.id);
         setDownstreamNodes(downstream);
-        
-        // Highlight downstream nodes
-        node.classed('highlighted', (n: ForceTreeNode) => downstream.has(n.id))
-            .classed('faded', (n: ForceTreeNode) => !downstream.has(n.id));
-        
-        // Update node opacity
-        node.selectAll<SVGCircleElement, ForceTreeNode>('circle')
-          .transition()
-          .duration(200)
-          .attr('fill-opacity', d => downstream.has(d.id) ? 1 : 0.2)
-          .attr('r', d => {
-            const baseRadius = d.type === 'genre' ? 
-              genreSizeScale(d.value) : 
-              sizeScale(d.popularity || 50);
-            return downstream.has(d.id) ? baseRadius * nodeScale * 1.2 : baseRadius * nodeScale;
-          });
-        
-        // Update label opacity
-        node.selectAll<SVGTextElement, ForceTreeNode>('text')
-          .transition()
-          .duration(200)
-          .attr('opacity', d => {
-            if (downstream.has(d.id)) return 1;
-            return d.type === 'track' ? 0.1 : 0.2;
-          });
-        
-        // Highlight relevant links
-        link.transition()
-          .duration(200)
-          .attr('stroke-opacity', (l: ForceTreeLink) => {
-            const sourceId = typeof l.source === 'string' ? l.source : (l.source as any).id;
-            const targetId = typeof l.target === 'string' ? l.target : (l.target as any).id;
-            return downstream.has(sourceId) && downstream.has(targetId) ? 0.8 : 0.05;
-          })
-          .attr('stroke', (l: ForceTreeLink) => {
-            const sourceId = typeof l.source === 'string' ? l.source : (l.source as any).id;
-            const targetId = typeof l.target === 'string' ? l.target : (l.target as any).id;
-            if (downstream.has(sourceId) && downstream.has(targetId)) {
-              const sourceNode = data.nodes.find(n => n.id === sourceId);
-              return sourceNode ? nodeColors[sourceNode.type] : '#444';
-            }
-            return '#444';
-          });
       })
       .on('mouseleave', function(event, d) {
         setHoveredNode(null);
         setDownstreamNodes(new Set());
-        
-        // Reset all nodes
-        node.classed('highlighted', false)
-            .classed('faded', false);
-        
-        // Reset node appearance
-        node.selectAll<SVGCircleElement, ForceTreeNode>('circle')
-          .transition()
-          .duration(200)
-          .attr('fill-opacity', 0.8)
-          .attr('r', d => {
-            const baseRadius = d.type === 'genre' ? 
-              genreSizeScale(d.value) : 
-              sizeScale(d.popularity || 50);
-            return baseRadius * nodeScale;
-          });
-        
-        // Reset label opacity
-        node.selectAll<SVGTextElement, ForceTreeNode>('text')
-          .transition()
-          .duration(200)
-          .attr('opacity', d => d.type === 'track' ? 0.7 : 1);
-        
-        // Reset links
-        link.transition()
-          .duration(200)
-          .attr('stroke-opacity', linkOpacity)
-          .attr('stroke', '#444');
       })
       .on('click', function(event, d) {
         event.stopPropagation();
@@ -359,16 +288,33 @@ const ForceTree: React.FC<ForceTreeProps> = ({
     const g = gRef.current;
     const simulation = simulationRef.current;
 
-    // Update link opacity (but preserve hover state)
+    // Update link opacity - only apply hover state if currently hovering
     g.selectAll('.link')
       .attr('stroke-opacity', (l: any) => {
-        // If we're currently hovering, preserve the hover opacity
+        // Only apply hover effects if we're currently hovering
         if (hoveredNode && downstreamNodes.size > 0) {
           const sourceId = typeof l.source === 'string' ? l.source : (l.source as any).id;
           const targetId = typeof l.target === 'string' ? l.target : (l.target as any).id;
           return downstreamNodes.has(sourceId) && downstreamNodes.has(targetId) ? 0.8 : 0.05;
         }
         return linkOpacity;
+      })
+      .attr('stroke', (l: any) => {
+        // Only apply hover colors if we're currently hovering
+        if (hoveredNode && downstreamNodes.size > 0) {
+          const sourceId = typeof l.source === 'string' ? l.source : (l.source as any).id;
+          const targetId = typeof l.target === 'string' ? l.target : (l.target as any).id;
+          if (downstreamNodes.has(sourceId) && downstreamNodes.has(targetId)) {
+            const sourceNode = data.nodes.find(n => n.id === sourceId);
+            const nodeColors = {
+              genre: '#ff00ff',
+              artist: '#00ffff',
+              track: '#00ff00'
+            };
+            return sourceNode ? nodeColors[sourceNode.type] : '#444';
+          }
+        }
+        return '#444';
       });
 
     // Update node sizes
@@ -386,14 +332,14 @@ const ForceTree: React.FC<ForceTreeProps> = ({
           genreSizeScale(d.value) : 
           sizeScale(d.popularity || 50);
         
-        // If we're currently hovering, preserve the hover sizing
+        // Only apply hover sizing if we're currently hovering
         if (hoveredNode && downstreamNodes.size > 0) {
           return downstreamNodes.has(d.id) ? baseRadius * nodeScale * 1.2 : baseRadius * nodeScale;
         }
         return baseRadius * nodeScale;
       })
       .attr('fill-opacity', (d: any) => {
-        // If we're currently hovering, preserve the hover opacity
+        // Only apply hover opacity if we're currently hovering
         if (hoveredNode && downstreamNodes.size > 0) {
           return downstreamNodes.has(d.id) ? 1 : 0.2;
         }
@@ -403,7 +349,7 @@ const ForceTree: React.FC<ForceTreeProps> = ({
     // Update text opacity
     g.selectAll('.node text')
       .attr('opacity', (d: any) => {
-        // If we're currently hovering, preserve the hover opacity
+        // Only apply hover opacity if we're currently hovering
         if (hoveredNode && downstreamNodes.size > 0) {
           if (downstreamNodes.has(d.id)) return 1;
           return d.type === 'track' ? 0.1 : 0.2;
@@ -450,7 +396,91 @@ const ForceTree: React.FC<ForceTreeProps> = ({
     // Restart simulation with low alpha to apply changes smoothly
     simulation.alpha(0.3).restart();
 
-  }, [chargeStrength, collisionRadius, linkDistance, gravity, nodeScale, linkOpacity, data, width, height, hoveredNode, downstreamNodes]);
+  }, [chargeStrength, collisionRadius, linkDistance, gravity, nodeScale, linkOpacity, data, width, height]);
+
+  // Separate effect to handle hover state changes
+  useEffect(() => {
+    if (!gRef.current) return;
+
+    const g = gRef.current;
+    const sizeScale = d3.scaleLinear()
+      .domain([0, 100])
+      .range([5, 15]);
+
+    const genreSizeScale = d3.scaleLinear()
+      .domain([0, d3.max(data.nodes.filter(n => n.type === 'genre'), d => d.value) || 1000])
+      .range([20, 40]);
+
+    const nodeColors = {
+      genre: '#ff00ff',
+      artist: '#00ffff',
+      track: '#00ff00'
+    };
+
+    // Update visual state based on hover
+    if (hoveredNode && downstreamNodes.size > 0) {
+      // Apply hover highlighting
+      g.selectAll('.node circle')
+        .transition()
+        .duration(200)
+        .attr('fill-opacity', (d: any) => downstreamNodes.has(d.id) ? 1 : 0.2)
+        .attr('r', (d: any) => {
+          const baseRadius = d.type === 'genre' ? 
+            genreSizeScale(d.value) : 
+            sizeScale(d.popularity || 50);
+          return downstreamNodes.has(d.id) ? baseRadius * nodeScale * 1.2 : baseRadius * nodeScale;
+        });
+
+      g.selectAll('.node text')
+        .transition()
+        .duration(200)
+        .attr('opacity', (d: any) => {
+          if (downstreamNodes.has(d.id)) return 1;
+          return d.type === 'track' ? 0.1 : 0.2;
+        });
+
+      g.selectAll('.link')
+        .transition()
+        .duration(200)
+        .attr('stroke-opacity', (l: any) => {
+          const sourceId = typeof l.source === 'string' ? l.source : (l.source as any).id;
+          const targetId = typeof l.target === 'string' ? l.target : (l.target as any).id;
+          return downstreamNodes.has(sourceId) && downstreamNodes.has(targetId) ? 0.8 : 0.05;
+        })
+        .attr('stroke', (l: any) => {
+          const sourceId = typeof l.source === 'string' ? l.source : (l.source as any).id;
+          const targetId = typeof l.target === 'string' ? l.target : (l.target as any).id;
+          if (downstreamNodes.has(sourceId) && downstreamNodes.has(targetId)) {
+            const sourceNode = data.nodes.find(n => n.id === sourceId);
+            return sourceNode ? nodeColors[sourceNode.type] : '#444';
+          }
+          return '#444';
+        });
+    } else {
+      // Reset to normal state
+      g.selectAll('.node circle')
+        .transition()
+        .duration(200)
+        .attr('fill-opacity', 0.8)
+        .attr('r', (d: any) => {
+          const baseRadius = d.type === 'genre' ? 
+            genreSizeScale(d.value) : 
+            sizeScale(d.popularity || 50);
+          return baseRadius * nodeScale;
+        });
+
+      g.selectAll('.node text')
+        .transition()
+        .duration(200)
+        .attr('opacity', (d: any) => d.type === 'track' ? 0.7 : 1);
+
+      g.selectAll('.link')
+        .transition()
+        .duration(200)
+        .attr('stroke-opacity', linkOpacity)
+        .attr('stroke', '#444');
+    }
+  }, [hoveredNode, downstreamNodes, nodeScale, linkOpacity, data]);
 
   return (
     <div className="relative">
