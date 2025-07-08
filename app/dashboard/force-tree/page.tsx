@@ -34,16 +34,20 @@ export default function ForceTreePage() {
     try {
       const spotifyClient = new SpotifyClient(session.accessToken);
       
-      // Fetch top tracks and saved tracks
-      const [topTracksResponse, savedTracksResponse] = await Promise.all([
-        spotifyClient.getTopTracks(50, timeRange),
-        spotifyClient.getSavedTracks(50)
-      ]);
-
-      const allTracks = [
-        ...topTracksResponse,
-        ...savedTracksResponse
-      ];
+      // Fetch more data to support higher node counts
+      const trackPromises = [];
+      
+      // Fetch top tracks
+      trackPromises.push(spotifyClient.getTopTracks(50, timeRange));
+      
+      // Fetch multiple pages of saved tracks to get more data
+      const savedTrackPages = Math.ceil(nodeCount / 100); // More pages for higher node counts
+      for (let i = 0; i < savedTrackPages; i++) {
+        trackPromises.push(spotifyClient.getSavedTracks(50, i * 50));
+      }
+      
+      const trackResponses = await Promise.all(trackPromises);
+      const allTracks = trackResponses.flat();
 
       // Remove duplicates
       const uniqueTracks = Array.from(
@@ -82,8 +86,9 @@ export default function ForceTreePage() {
 
   const getLoadingMessage = () => {
     if (nodeCount <= 400) return 'Creating your music tree...';
-    if (nodeCount <= 600) return 'Building connections between your music...';
-    return 'Mapping your entire music universe...';
+    if (nodeCount <= 800) return 'Building connections between your music...';
+    if (nodeCount <= 1200) return 'Mapping your entire music universe...';
+    return 'Processing massive music constellation...';
   };
 
   if (status === 'loading' || !session) {
@@ -148,7 +153,7 @@ export default function ForceTreePage() {
               <input
                 type="range"
                 min="200"
-                max="800"
+                max="1500"
                 step="100"
                 value={nodeCount}
                 onChange={(e) => setNodeCount(Number(e.target.value))}
@@ -157,7 +162,7 @@ export default function ForceTreePage() {
               />
               <div className="flex justify-between text-xs text-gray-500 mt-1">
                 <span>200</span>
-                <span>800</span>
+                <span>1500</span>
               </div>
             </div>
 
@@ -240,7 +245,7 @@ export default function ForceTreePage() {
                   <input
                     type="range"
                     min="200"
-                    max="800"
+                    max="1500"
                     step="100"
                     value={nodeCount}
                     onChange={(e) => setNodeCount(Number(e.target.value))}
@@ -254,9 +259,10 @@ export default function ForceTreePage() {
                 </div>
 
                 <div className="text-sm text-gray-500 mb-6">
-                  {nodeCount <= 300 && "Quick loading, focused on top items"}
-                  {nodeCount > 300 && nodeCount <= 500 && "Good balance of detail and performance"}
-                  {nodeCount > 500 && "Maximum detail, may take longer to stabilize"}
+                  {nodeCount <= 400 && "Quick loading, focused on top items"}
+                  {nodeCount > 400 && nodeCount <= 800 && "Good balance of detail and performance"}
+                  {nodeCount > 800 && nodeCount <= 1200 && "High detail, may take longer to stabilize"}
+                  {nodeCount > 1200 && "Maximum detail, extensive processing required"}
                 </div>
 
                 <button

@@ -73,9 +73,15 @@ export function processSpotifyDataToForceTree(
     genrePopularity.set(genre, totalPop);
   });
 
+  // Dynamically calculate genre count based on total nodes
+  const maxGenres = Math.min(
+    genreArtistMap.size, // Don't exceed available genres
+    Math.max(5, Math.floor(maxNodes / 40)) // At least 5 genres, scale up with node count
+  );
+  
   const sortedGenres = Array.from(genreArtistMap.keys())
     .sort((a, b) => (genrePopularity.get(b) || 0) - (genrePopularity.get(a) || 0))
-    .slice(0, Math.min(8, Math.floor(maxNodes / 50))); // Limit genres based on node count
+    .slice(0, maxGenres);
 
   // Create genre nodes
   sortedGenres.forEach(genre => {
@@ -92,59 +98,63 @@ export function processSpotifyDataToForceTree(
   });
 
   // Create artist nodes and links
-  const artistNodeCount = Math.floor(maxNodes * 0.3); // 30% of nodes for artists
-  const trackNodeCount = maxNodes - nodes.length - artistNodeCount; // Rest for tracks
+  // Use 25-35% of nodes for artists depending on total node count
+  const artistRatio = maxNodes <= 400 ? 0.25 : 0.35;
+  const artistNodeCount = Math.floor(maxNodes * artistRatio);
+  const trackNodeCount = maxNodes - sortedGenres.length - artistNodeCount; // Rest for tracks
   
   let artistCount = 0;
+  const allArtistsWithGenres: Array<[string, string, SpotifyTrack[]]> = [];
   
+  // Collect all artists with their genres
   sortedGenres.forEach(genre => {
     const artistsInGenre = genreArtistMap.get(genre)!;
+    artistsInGenre.forEach((tracks, artistId) => {
+      allArtistsWithGenres.push([artistId, genre, tracks]);
+    });
+  });
+  
+  // Sort all artists by total popularity
+  allArtistsWithGenres.sort((a, b) => {
+    const popA = a[2].reduce((sum, track) => sum + (track.popularity || 0), 0);
+    const popB = b[2].reduce((sum, track) => sum + (track.popularity || 0), 0);
+    return popB - popA;
+  });
+  
+  // Add top artists up to the limit
+  allArtistsWithGenres.slice(0, artistNodeCount).forEach(([artistId, genre, artistTracks]) => {
+    const artist = artistMap.get(artistId);
+    if (!artist) return;
+    
     const genreId = `genre-${genre}`;
+    const artistNodeId = `artist-${artistId}`;
+    const artistNode: ForceTreeNode = {
+      id: artistNodeId,
+      name: artist.name,
+      type: 'artist',
+      value: artist.popularity || 50,
+      popularity: artist.popularity,
+      imageUrl: artist.images?.[0]?.url,
+      spotifyUrl: artist.external_urls?.spotify,
+      depth: 1,
+      parent: genreId
+    };
     
-    // Sort artists by popularity within genre
-    const sortedArtists = Array.from(artistsInGenre.entries())
-      .sort((a, b) => {
-        const popA = a[1].reduce((sum, track) => sum + (track.popularity || 0), 0);
-        const popB = b[1].reduce((sum, track) => sum + (track.popularity || 0), 0);
-        return popB - popA;
-      })
-      .slice(0, Math.ceil(artistNodeCount / sortedGenres.length)); // Distribute artists evenly
+    nodes.push(artistNode);
+    nodeMap.set(artistNodeId, artistNode);
+    artistCount++;
     
-    sortedArtists.forEach(([artistId, artistTracks]) => {
-      if (artistCount >= artistNodeCount) return;
-      
-      const artist = artistMap.get(artistId);
-      if (!artist) return;
-      
-      const artistNodeId = `artist-${artistId}`;
-      const artistNode: ForceTreeNode = {
-        id: artistNodeId,
-        name: artist.name,
-        type: 'artist',
-        value: artist.popularity || 50,
-        popularity: artist.popularity,
-        imageUrl: artist.images?.[0]?.url,
-        spotifyUrl: artist.external_urls?.spotify,
-        depth: 1,
-        parent: genreId
-      };
-      
-      nodes.push(artistNode);
-      nodeMap.set(artistNodeId, artistNode);
-      artistCount++;
-      
-      // Create link from genre to artist
-      links.push({
-        source: genreId,
-        target: artistNodeId,
-        value: artistTracks.length
-      });
+    // Create link from genre to artist
+    links.push({
+      source: genreId,
+      target: artistNodeId,
+      value: artistTracks.length
     });
   });
 
   // Create track nodes and links
-  let trackCount = 0;
-  const tracksPerArtist = Math.ceil(trackNodeCount / artistCount);
+  // Collect all unique tracks with their artists
+  const allTracksWithArtists: Array<[SpotifyTrack, ForceTreeNode]> = [];
   
   nodes.filter(n => n.type === 'artist').forEach(artistNode => {
     const artistId = artistNode.id.replace('artist-', '');
@@ -157,42 +167,42 @@ export function processSpotifyDataToForceTree(
       }
     });
     
-    // Remove duplicates and sort by popularity
-    const uniqueTracks = Array.from(
-      new Map(artistTracks.map(t => [t.id, t])).values()
-    ).sort((a, b) => (b.popularity || 0) - (a.popularity || 0))
-    .slice(0, tracksPerArtist);
-    
-    uniqueTracks.forEach(track => {
-      if (trackCount >= trackNodeCount) return;
-      
-      const trackNodeId = `track-${track.id}`;
-      if (!nodeMap.has(trackNodeId)) { // Avoid duplicates
-        const trackNode: ForceTreeNode = {
-          id: trackNodeId,
-          name: track.name,
-          type: 'track',
-          value: track.popularity || 50,
-          popularity: track.popularity,
-          imageUrl: track.album?.images?.[0]?.url,
-          spotifyUrl: track.external_urls?.spotify,
-          depth: 2,
-          parent: artistNode.id
-        };
-        
-        nodes.push(trackNode);
-        nodeMap.set(trackNodeId, trackNode);
-        trackCount++;
-        
-        // Create link from artist to track
-        links.push({
-          source: artistNode.id,
-          target: trackNodeId,
-          value: track.popularity || 50
-        });
+    // Add unique tracks with their artist reference
+    artistTracks.forEach(track => {
+      if (!allTracksWithArtists.find(([t, _]) => t.id === track.id)) {
+        allTracksWithArtists.push([track, artistNode]);
       }
     });
   });
+  
+  // Sort all tracks by popularity and take the top ones
+  allTracksWithArtists
+    .sort((a, b) => (b[0].popularity || 0) - (a[0].popularity || 0))
+    .slice(0, trackNodeCount)
+    .forEach(([track, artistNode]) => {
+      const trackNodeId = `track-${track.id}`;
+      const trackNode: ForceTreeNode = {
+        id: trackNodeId,
+        name: track.name,
+        type: 'track',
+        value: track.popularity || 50,
+        popularity: track.popularity,
+        imageUrl: track.album?.images?.[0]?.url,
+        spotifyUrl: track.external_urls?.spotify,
+        depth: 2,
+        parent: artistNode.id
+      };
+      
+      nodes.push(trackNode);
+      nodeMap.set(trackNodeId, trackNode);
+      
+      // Create link from artist to track
+      links.push({
+        source: artistNode.id,
+        target: trackNodeId,
+        value: track.popularity || 50
+      });
+    });
 
   return { nodes, links };
 } 

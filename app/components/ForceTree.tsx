@@ -66,9 +66,13 @@ const ForceTree: React.FC<ForceTreeProps> = ({ data, width, height }) => {
         .strength(0.5))
       .force('charge', d3.forceManyBody<ForceTreeNode>()
         .strength(d => {
-          if (d.type === 'genre') return -1000;
-          if (d.type === 'artist') return -300;
-          return -100;
+          // Adjust charge strength based on total node count
+          const nodeCount = data.nodes.length;
+          const scaleFactor = nodeCount > 800 ? 0.7 : 1;
+          
+          if (d.type === 'genre') return -1000 * scaleFactor;
+          if (d.type === 'artist') return -300 * scaleFactor;
+          return -100 * scaleFactor;
         }))
       .force('center', d3.forceCenter(width / 2, height / 2))
       .force('collision', d3.forceCollide<ForceTreeNode>()
@@ -79,9 +83,13 @@ const ForceTree: React.FC<ForceTreeProps> = ({ data, width, height }) => {
       // Add radial force to create tree-like structure
       .force('radial', d3.forceRadial<ForceTreeNode>(
         d => {
+          // Adjust radial distances based on node count
+          const nodeCount = data.nodes.length;
+          const distanceScale = nodeCount > 800 ? 1.3 : 1;
+          
           if (d.type === 'genre') return 0;
-          if (d.type === 'artist') return 200;
-          return 350;
+          if (d.type === 'artist') return 200 * distanceScale;
+          return 350 * distanceScale;
         },
         width / 2,
         height / 2
