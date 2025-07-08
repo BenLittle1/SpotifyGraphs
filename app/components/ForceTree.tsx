@@ -112,8 +112,8 @@ const ForceTree: React.FC<ForceTreeProps> = ({
     const genreColors = d3.scaleOrdinal(d3.schemeSet3);
     const nodeColors: { [key: string]: string } = {
       genre: '#ff00ff', // Magenta/Pink for genres
-      artist: '#00ffff', // Cyan for artists
-      track: '#00ff00'  // Green for tracks
+      artist: '#A855F7', // Dark neon purple for artists
+      track: '#3B82F6'  // Dark neon blue for tracks
     };
 
     // Size scales
@@ -389,8 +389,8 @@ const ForceTree: React.FC<ForceTreeProps> = ({
             const sourceNode = data.nodes.find(n => n.id === sourceId);
             const nodeColors: { [key: string]: string } = {
               genre: '#ff00ff',
-              artist: '#00ffff',
-              track: '#00ff00'
+              artist: '#A855F7',
+              track: '#3B82F6'
             };
             return sourceNode ? nodeColors[sourceNode.type as string] || '#444' : '#444';
           }
@@ -435,8 +435,8 @@ const ForceTree: React.FC<ForceTreeProps> = ({
         }
         const nodeColors: { [key: string]: string } = {
           genre: '#ff00ff',
-          artist: '#00ffff',
-          track: '#00ff00'
+          artist: '#A855F7',
+          track: '#3B82F6'
         };
         return nodeColors[d.type as string] || '#444';
       });
@@ -603,7 +603,7 @@ const ForceTree: React.FC<ForceTreeProps> = ({
             transform: 'translateX(-50%)',
             border: `1px solid ${
               hoveredNode.type === 'genre' ? '#ff00ff' :
-              hoveredNode.type === 'artist' ? '#00ffff' : '#00ff00'
+              hoveredNode.type === 'artist' ? '#A855F7' : '#3B82F6'
             }`
           }}
         >
@@ -628,11 +628,11 @@ const ForceTree: React.FC<ForceTreeProps> = ({
             <span>Genres</span>
           </div>
           <div className="flex items-center gap-2">
-            <div className="w-3 h-3 rounded-full" style={{ backgroundColor: '#00ffff' }}></div>
+            <div className="w-3 h-3 rounded-full" style={{ backgroundColor: '#A855F7' }}></div>
             <span>Artists</span>
           </div>
           <div className="flex items-center gap-2">
-            <div className="w-3 h-3 rounded-full" style={{ backgroundColor: '#00ff00' }}></div>
+            <div className="w-3 h-3 rounded-full" style={{ backgroundColor: '#3B82F6' }}></div>
             <span>Tracks</span>
           </div>
           <div className="mt-2 pt-2 border-t border-gray-700 text-xs text-gray-400">
