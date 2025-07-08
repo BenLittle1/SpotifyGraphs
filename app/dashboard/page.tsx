@@ -24,6 +24,14 @@ const graphTypes: GraphType[] = [
     route: '/dashboard/top-tracks',
   },
   {
+    id: 'treemap',
+    title: 'Music Treemap',
+    description: 'Explore your music hierarchy: Genres → Artists → Songs',
+    icon: '🗂️',
+    color: 'neon-purple',
+    route: '/dashboard/treemap',
+  },
+  {
     id: 'genre-map',
     title: 'Genre Map',
     description: 'Explore the genres you listen to and how they connect',
