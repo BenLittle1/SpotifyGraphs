@@ -359,9 +359,17 @@ const ForceTree: React.FC<ForceTreeProps> = ({
     const g = gRef.current;
     const simulation = simulationRef.current;
 
-    // Update link opacity
+    // Update link opacity (but preserve hover state)
     g.selectAll('.link')
-      .attr('stroke-opacity', linkOpacity);
+      .attr('stroke-opacity', (l: any) => {
+        // If we're currently hovering, preserve the hover opacity
+        if (hoveredNode && downstreamNodes.size > 0) {
+          const sourceId = typeof l.source === 'string' ? l.source : (l.source as any).id;
+          const targetId = typeof l.target === 'string' ? l.target : (l.target as any).id;
+          return downstreamNodes.has(sourceId) && downstreamNodes.has(targetId) ? 0.8 : 0.05;
+        }
+        return linkOpacity;
+      });
 
     // Update node sizes
     const sizeScale = d3.scaleLinear()
@@ -377,7 +385,30 @@ const ForceTree: React.FC<ForceTreeProps> = ({
         const baseRadius = d.type === 'genre' ? 
           genreSizeScale(d.value) : 
           sizeScale(d.popularity || 50);
+        
+        // If we're currently hovering, preserve the hover sizing
+        if (hoveredNode && downstreamNodes.size > 0) {
+          return downstreamNodes.has(d.id) ? baseRadius * nodeScale * 1.2 : baseRadius * nodeScale;
+        }
         return baseRadius * nodeScale;
+      })
+      .attr('fill-opacity', (d: any) => {
+        // If we're currently hovering, preserve the hover opacity
+        if (hoveredNode && downstreamNodes.size > 0) {
+          return downstreamNodes.has(d.id) ? 1 : 0.2;
+        }
+        return 0.8;
+      });
+
+    // Update text opacity
+    g.selectAll('.node text')
+      .attr('opacity', (d: any) => {
+        // If we're currently hovering, preserve the hover opacity
+        if (hoveredNode && downstreamNodes.size > 0) {
+          if (downstreamNodes.has(d.id)) return 1;
+          return d.type === 'track' ? 0.1 : 0.2;
+        }
+        return d.type === 'track' ? 0.7 : 1;
       });
 
     // Update forces
@@ -419,7 +450,7 @@ const ForceTree: React.FC<ForceTreeProps> = ({
     // Restart simulation with low alpha to apply changes smoothly
     simulation.alpha(0.3).restart();
 
-  }, [chargeStrength, collisionRadius, linkDistance, gravity, nodeScale, linkOpacity, data, width, height]);
+  }, [chargeStrength, collisionRadius, linkDistance, gravity, nodeScale, linkOpacity, data, width, height, hoveredNode, downstreamNodes]);
 
   return (
     <div className="relative">
