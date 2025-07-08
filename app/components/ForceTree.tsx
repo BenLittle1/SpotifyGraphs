@@ -17,12 +17,34 @@ const ForceTree: React.FC<ForceTreeProps> = ({ data, width, height }) => {
   const svgRef = useRef<SVGSVGElement>(null);
   const [hoveredNode, setHoveredNode] = useState<ForceTreeNode | null>(null);
   const [selectedNode, setSelectedNode] = useState<ForceTreeNode | null>(null);
+  const [downstreamNodes, setDownstreamNodes] = useState<Set<string>>(new Set());
 
   useEffect(() => {
     if (!svgRef.current || !data) return;
 
     const svg = d3.select(svgRef.current);
     svg.selectAll('*').remove();
+
+    // Function to find all downstream nodes
+    const findDownstreamNodes = (nodeId: string): Set<string> => {
+      const downstream = new Set<string>([nodeId]);
+      const toProcess = [nodeId];
+      
+      while (toProcess.length > 0) {
+        const currentId = toProcess.pop()!;
+        data.links.forEach(link => {
+          const sourceId = typeof link.source === 'string' ? link.source : (link.source as any).id;
+          const targetId = typeof link.target === 'string' ? link.target : (link.target as any).id;
+          
+          if (sourceId === currentId && !downstream.has(targetId)) {
+            downstream.add(targetId);
+            toProcess.push(targetId);
+          }
+        });
+      }
+      
+      return downstream;
+    };
 
     // Create container with zoom
     const g = svg.append('g');
@@ -101,6 +123,7 @@ const ForceTree: React.FC<ForceTreeProps> = ({ data, width, height }) => {
       .selectAll('line')
       .data(data.links)
       .enter().append('line')
+      .attr('class', 'link')
       .attr('stroke', '#444')
       .attr('stroke-opacity', 0.4)
       .attr('stroke-width', d => Math.sqrt(d.value / 20));
@@ -111,6 +134,7 @@ const ForceTree: React.FC<ForceTreeProps> = ({ data, width, height }) => {
       .selectAll('g')
       .data(data.nodes)
       .enter().append('g')
+      .attr('class', 'node')
       .attr('cursor', 'pointer')
       .call(d3.drag<SVGGElement, ForceTreeNode>()
         .on('start', dragstarted)
@@ -152,25 +176,81 @@ const ForceTree: React.FC<ForceTreeProps> = ({ data, width, height }) => {
     node
       .on('mouseenter', function(event, d) {
         setHoveredNode(d);
-        d3.select(this).select('circle')
+        const downstream = findDownstreamNodes(d.id);
+        setDownstreamNodes(downstream);
+        
+        // Highlight downstream nodes
+        node.classed('highlighted', (n: ForceTreeNode) => downstream.has(n.id))
+            .classed('faded', (n: ForceTreeNode) => !downstream.has(n.id));
+        
+        // Update node opacity
+        node.selectAll<SVGCircleElement, ForceTreeNode>('circle')
           .transition()
           .duration(200)
-          .attr('r', () => {
+          .attr('fill-opacity', d => downstream.has(d.id) ? 1 : 0.2)
+          .attr('r', d => {
             const baseRadius = d.type === 'genre' ? 
               genreSizeScale(d.value) : 
               sizeScale(d.popularity || 50);
-            return baseRadius * 1.2;
+            return downstream.has(d.id) ? baseRadius * 1.2 : baseRadius;
+          });
+        
+        // Update label opacity
+        node.selectAll<SVGTextElement, ForceTreeNode>('text')
+          .transition()
+          .duration(200)
+          .attr('opacity', d => {
+            if (downstream.has(d.id)) return 1;
+            return d.type === 'track' ? 0.1 : 0.2;
+          });
+        
+        // Highlight relevant links
+        link.transition()
+          .duration(200)
+          .attr('stroke-opacity', (l: ForceTreeLink) => {
+            const sourceId = typeof l.source === 'string' ? l.source : (l.source as any).id;
+            const targetId = typeof l.target === 'string' ? l.target : (l.target as any).id;
+            return downstream.has(sourceId) && downstream.has(targetId) ? 0.8 : 0.05;
+          })
+          .attr('stroke', (l: ForceTreeLink) => {
+            const sourceId = typeof l.source === 'string' ? l.source : (l.source as any).id;
+            const targetId = typeof l.target === 'string' ? l.target : (l.target as any).id;
+            if (downstream.has(sourceId) && downstream.has(targetId)) {
+              const sourceNode = data.nodes.find(n => n.id === sourceId);
+              return sourceNode ? nodeColors[sourceNode.type] : '#444';
+            }
+            return '#444';
           });
       })
       .on('mouseleave', function(event, d) {
         setHoveredNode(null);
-        d3.select(this).select('circle')
+        setDownstreamNodes(new Set());
+        
+        // Reset all nodes
+        node.classed('highlighted', false)
+            .classed('faded', false);
+        
+        // Reset node appearance
+        node.selectAll<SVGCircleElement, ForceTreeNode>('circle')
           .transition()
           .duration(200)
-          .attr('r', () => {
+          .attr('fill-opacity', 0.8)
+          .attr('r', d => {
             if (d.type === 'genre') return genreSizeScale(d.value);
             return sizeScale(d.popularity || 50);
           });
+        
+        // Reset label opacity
+        node.selectAll<SVGTextElement, ForceTreeNode>('text')
+          .transition()
+          .duration(200)
+          .attr('opacity', d => d.type === 'track' ? 0.7 : 1);
+        
+        // Reset links
+        link.transition()
+          .duration(200)
+          .attr('stroke-opacity', 0.4)
+          .attr('stroke', '#444');
       })
       .on('click', function(event, d) {
         event.stopPropagation();
