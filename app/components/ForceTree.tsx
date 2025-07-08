@@ -37,6 +37,7 @@ const ForceTree: React.FC<ForceTreeProps> = ({
   const [hoveredNode, setHoveredNode] = useState<ForceTreeNode | null>(null);
   const [selectedNode, setSelectedNode] = useState<ForceTreeNode | null>(null);
   const [downstreamNodes, setDownstreamNodes] = useState<Set<string>>(new Set());
+  const [upstreamNodes, setUpstreamNodes] = useState<Set<string>>(new Set());
   const [expandedNodes, setExpandedNodes] = useState<Set<string>>(new Set());
 
   // Initialize the visualization only once
@@ -65,6 +66,28 @@ const ForceTree: React.FC<ForceTreeProps> = ({
       }
       
       return downstream;
+    };
+
+    // Function to find all upstream nodes (parent nodes in hierarchy)
+    const findUpstreamNodes = (nodeId: string): Set<string> => {
+      const upstream = new Set<string>([nodeId]);
+      const toProcess = [nodeId];
+      
+      while (toProcess.length > 0) {
+        const currentId = toProcess.pop()!;
+        data.links.forEach(link => {
+          const sourceId = typeof link.source === 'string' ? link.source : (link.source as any).id;
+          const targetId = typeof link.target === 'string' ? link.target : (link.target as any).id;
+          
+          // Find all links where this node is the target (downstream from source)
+          if (targetId === currentId && !upstream.has(sourceId)) {
+            upstream.add(sourceId);
+            toProcess.push(sourceId);
+          }
+        });
+      }
+      
+      return upstream;
     };
 
     // Create container with zoom
@@ -219,11 +242,14 @@ const ForceTree: React.FC<ForceTreeProps> = ({
       .on('mouseenter', function(event, d) {
         setHoveredNode(d);
         const downstream = findDownstreamNodes(d.id);
+        const upstream = findUpstreamNodes(d.id);
         setDownstreamNodes(downstream);
+        setUpstreamNodes(upstream);
       })
       .on('mouseleave', function(event, d) {
         setHoveredNode(null);
         setDownstreamNodes(new Set());
+        setUpstreamNodes(new Set());
       })
       .on('click', function(event, d) {
         event.stopPropagation();
@@ -303,23 +329,34 @@ const ForceTree: React.FC<ForceTreeProps> = ({
     const g = gRef.current;
     const simulation = simulationRef.current;
 
-    // Update link opacity - only apply hover state if currently hovering
+    // Update link opacity - apply hover state for both upstream and downstream
     g.selectAll('.link')
       .attr('stroke-opacity', (l: any) => {
         // Only apply hover effects if we're currently hovering
-        if (hoveredNode && downstreamNodes.size > 0) {
+        if (hoveredNode && (downstreamNodes.size > 0 || upstreamNodes.size > 0)) {
           const sourceId = typeof l.source === 'string' ? l.source : (l.source as any).id;
           const targetId = typeof l.target === 'string' ? l.target : (l.target as any).id;
-          return downstreamNodes.has(sourceId) && downstreamNodes.has(targetId) ? 0.8 : 0.05;
+          
+          // Check if this link is part of downstream path
+          const isDownstream = downstreamNodes.has(sourceId) && downstreamNodes.has(targetId);
+          // Check if this link is part of upstream path
+          const isUpstream = upstreamNodes.has(sourceId) && upstreamNodes.has(targetId);
+          
+          return (isDownstream || isUpstream) ? 0.8 : 0.05;
         }
         return linkOpacity;
       })
       .attr('stroke', (l: any) => {
         // Only apply hover colors if we're currently hovering
-        if (hoveredNode && downstreamNodes.size > 0) {
+        if (hoveredNode && (downstreamNodes.size > 0 || upstreamNodes.size > 0)) {
           const sourceId = typeof l.source === 'string' ? l.source : (l.source as any).id;
           const targetId = typeof l.target === 'string' ? l.target : (l.target as any).id;
-          if (downstreamNodes.has(sourceId) && downstreamNodes.has(targetId)) {
+          
+          // Check if this link is part of downstream or upstream path
+          const isDownstream = downstreamNodes.has(sourceId) && downstreamNodes.has(targetId);
+          const isUpstream = upstreamNodes.has(sourceId) && upstreamNodes.has(targetId);
+          
+          if (isDownstream || isUpstream) {
             const sourceNode = data.nodes.find(n => n.id === sourceId);
             const nodeColors: { [key: string]: string } = {
               genre: '#ff00ff',
@@ -347,16 +384,18 @@ const ForceTree: React.FC<ForceTreeProps> = ({
           genreSizeScale(d.value) : 
           sizeScale(d.popularity || 50);
         
-        // Only apply hover sizing if we're currently hovering
-        if (hoveredNode && downstreamNodes.size > 0) {
-          return downstreamNodes.has(d.id) ? baseRadius * nodeScale * 1.2 : baseRadius * nodeScale;
+        // Apply hover sizing for both upstream and downstream
+        if (hoveredNode && (downstreamNodes.size > 0 || upstreamNodes.size > 0)) {
+          const isRelevant = downstreamNodes.has(d.id) || upstreamNodes.has(d.id);
+          return isRelevant ? baseRadius * nodeScale * 1.2 : baseRadius * nodeScale;
         }
         return baseRadius * nodeScale;
       })
       .attr('fill-opacity', (d: any) => {
-        // Only apply hover opacity if we're currently hovering
-        if (hoveredNode && downstreamNodes.size > 0) {
-          return downstreamNodes.has(d.id) ? 1 : 0.2;
+        // Apply hover opacity for both upstream and downstream
+        if (hoveredNode && (downstreamNodes.size > 0 || upstreamNodes.size > 0)) {
+          const isRelevant = downstreamNodes.has(d.id) || upstreamNodes.has(d.id);
+          return isRelevant ? 1 : 0.2;
         }
         return 0.8;
       })
@@ -376,9 +415,10 @@ const ForceTree: React.FC<ForceTreeProps> = ({
     // Update text opacity
     g.selectAll('.node text')
       .attr('opacity', (d: any) => {
-        // Only apply hover opacity if we're currently hovering
-        if (hoveredNode && downstreamNodes.size > 0) {
-          if (downstreamNodes.has(d.id)) return 1;
+        // Apply hover opacity for both upstream and downstream
+        if (hoveredNode && (downstreamNodes.size > 0 || upstreamNodes.size > 0)) {
+          const isRelevant = downstreamNodes.has(d.id) || upstreamNodes.has(d.id);
+          if (isRelevant) return 1;
           return d.type === 'track' ? 0.1 : 0.2;
         }
         return d.type === 'track' ? 0.7 : 1;
@@ -432,7 +472,7 @@ const ForceTree: React.FC<ForceTreeProps> = ({
     // Restart simulation with low alpha to apply changes smoothly
     simulation.alpha(0.3).restart();
 
-  }, [chargeStrength, collisionRadius, linkDistance, gravity, nodeScale, linkOpacity, data, width, height, expandedNodes]);
+  }, [chargeStrength, collisionRadius, linkDistance, gravity, nodeScale, linkOpacity, data, width, height, expandedNodes, downstreamNodes, upstreamNodes, hoveredNode]);
 
   // Handle cluster expansion effect
   useEffect(() => {

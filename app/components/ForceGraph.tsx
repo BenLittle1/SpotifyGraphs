@@ -357,7 +357,98 @@ const ForceGraph: React.FC<ForceGraphProps> = ({ data, width = 1200, height = 80
       .style('opacity', 0)
       .style('z-index', 1000);
 
+    // Function to find upstream nodes (parent nodes in hierarchy)
+    const findUpstreamNodes = (nodeId: string): Set<string> => {
+      const upstream = new Set<string>();
+      const toProcess = [nodeId];
+      
+      while (toProcess.length > 0) {
+        const currentId = toProcess.pop()!;
+        
+        // Find all links where this node is the target (downstream)
+        data.links.forEach(link => {
+          const sourceId = typeof link.source === 'string' ? link.source : (link.source as any).id;
+          const targetId = typeof link.target === 'string' ? link.target : (link.target as any).id;
+          
+          if (targetId === currentId && !upstream.has(sourceId)) {
+            upstream.add(sourceId);
+            toProcess.push(sourceId);
+          }
+        });
+      }
+      
+      return upstream;
+    };
+
+    // Function to find upstream links
+    const findUpstreamLinks = (nodeId: string, upstreamNodes: Set<string>): Set<string> => {
+      const upstreamLinks = new Set<string>();
+      const allRelevantNodes = new Set([nodeId, ...Array.from(upstreamNodes)]);
+      
+      data.links.forEach((link, index) => {
+        const sourceId = typeof link.source === 'string' ? link.source : (link.source as any).id;
+        const targetId = typeof link.target === 'string' ? link.target : (link.target as any).id;
+        
+        // Include link if it connects nodes in the upstream path
+        if (allRelevantNodes.has(sourceId) && allRelevantNodes.has(targetId)) {
+          upstreamLinks.add(index.toString());
+        }
+      });
+      
+      return upstreamLinks;
+    };
+
     node.on('mouseover', (event, d) => {
+      // Find upstream nodes and links
+      const upstreamNodes = findUpstreamNodes(d.id);
+      const upstreamLinks = findUpstreamLinks(d.id, upstreamNodes);
+      
+      // Highlight the hovered node and upstream nodes
+      node.selectAll('circle')
+        .attr('stroke-width', (nodeData: any) => {
+          if (nodeData.id === d.id) return 4; // Hovered node gets thicker border
+          if (upstreamNodes.has(nodeData.id)) return 3; // Upstream nodes get medium border
+          return 2; // Others keep normal border
+        })
+        .attr('stroke-opacity', (nodeData: any) => {
+          if (nodeData.id === d.id || upstreamNodes.has(nodeData.id)) return 1;
+          return 0.3; // Dim non-related nodes
+        })
+        .attr('fill-opacity', (nodeData: any) => {
+          if (nodeData.id === d.id || upstreamNodes.has(nodeData.id)) return 1;
+          return 0.3; // Dim non-related nodes
+        });
+
+      // Highlight upstream links
+      link.attr('stroke-opacity', (linkData: any, i: number) => {
+        if (upstreamLinks.has(i.toString())) return 0.8; // Highlight upstream links
+        return 0.1; // Dim other links
+      })
+      .attr('stroke-width', (linkData: any, i: number) => {
+        if (upstreamLinks.has(i.toString())) {
+          return (linkData.strength * (isSmall ? 1.5 : 1)) * 1.5; // Thicker upstream links
+        }
+        return linkData.strength * (isSmall ? 1.5 : 1);
+      });
+
+      // Highlight upstream text labels
+      node.selectAll('text')
+        .attr('opacity', (nodeData: any) => {
+          if (nodeData.id === d.id || upstreamNodes.has(nodeData.id)) return 1;
+          return 0.3; // Dim non-related labels
+        })
+        .attr('font-weight', (nodeData: any) => {
+          if (nodeData.id === d.id || upstreamNodes.has(nodeData.id)) return 'bold';
+          return 'normal';
+        });
+
+      // Show enhanced tooltip with upstream information
+      const upstreamInfo = Array.from(upstreamNodes)
+        .map(nodeId => data.nodes.find(n => n.id === nodeId))
+        .filter(Boolean)
+        .map(n => n!.name)
+        .join(' → ');
+
       tooltip.transition()
         .duration(200)
         .style('opacity', .9);
@@ -365,7 +456,8 @@ const ForceGraph: React.FC<ForceGraphProps> = ({ data, width = 1200, height = 80
       tooltip.html(`
         <div style="color: ${colorScale[d.group]}">
           <strong>${d.name}</strong><br/>
-          ${d.group === 'track' || d.group === 'artist' ? `Popularity: ${d.popularity}` : ''}
+          ${d.group === 'track' || d.group === 'artist' ? `Popularity: ${d.popularity}<br/>` : ''}
+          ${upstreamInfo ? `Path: ${upstreamInfo} → <strong>${d.name}</strong>` : ''}
         </div>
       `)
         .style('left', (event.pageX + 10) + 'px')
@@ -373,6 +465,28 @@ const ForceGraph: React.FC<ForceGraphProps> = ({ data, width = 1200, height = 80
         .style('border-color', colorScale[d.group]);
     })
     .on('mouseout', () => {
+      // Reset all visual enhancements
+      node.selectAll('circle')
+        .attr('stroke-width', 2)
+        .attr('stroke-opacity', 0.8)
+        .attr('fill-opacity', 1);
+
+      link.attr('stroke-opacity', linkOpacity)
+        .attr('stroke-width', (d) => d.strength * (isSmall ? 1.5 : 1));
+
+      node.selectAll('text')
+        .attr('opacity', (d: any) => {
+          // Restore original visibility logic
+          if (d.group === 'track' && (d.radius || 10) < minLabelRadius) {
+            return 0;
+          }
+          if (d.group === 'artist' && (d.radius || 10) < minLabelRadius + 5) {
+            return 0;
+          }
+          return 1;
+        })
+        .attr('font-weight', 'bold');
+
       tooltip.transition()
         .duration(500)
         .style('opacity', 0);
