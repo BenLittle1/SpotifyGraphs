@@ -385,7 +385,7 @@ const ForceTree: React.FC<ForceTreeProps> = ({
     return () => {
       simulation.stop();
     };
-  }, [data]); // Only depend on data changes
+  }, [data, trackClustering]); // Re-render when data or track clustering changes
 
   // Update visual properties when sliders change
   useEffect(() => {
@@ -625,8 +625,8 @@ const ForceTree: React.FC<ForceTreeProps> = ({
 
   return (
     <div className="relative">
-      {/* Dynamic Mode Toggle - Left Side */}
-      <div className="absolute top-4 left-4 z-20 bg-gray-800 p-3 rounded-lg border border-gray-600">
+      {/* Left Panel - Dynamic Mode + Track Clustering Opacity */}
+      <div className="absolute top-4 left-4 z-20 bg-gray-800 p-3 rounded-lg border border-gray-600 space-y-3">
         <label className="flex items-center space-x-2 text-white text-sm">
           <input
             type="checkbox"
@@ -636,6 +636,26 @@ const ForceTree: React.FC<ForceTreeProps> = ({
           />
           <span>Dynamic Mode</span>
         </label>
+        
+        {/* Track Clustering Opacity - Only show when track clustering is enabled */}
+        {trackClustering && (
+          <div className="space-y-2">
+            <div className="text-white text-xs font-semibold">Track Clustering</div>
+            <div className="flex items-center space-x-2">
+              <span className="text-xs text-gray-300 w-20">Cluster↔Track</span>
+              <input
+                type="range"
+                min="0"
+                max="1"
+                step="0.1"
+                value={linkOpacities['cluster-track']}
+                onChange={(e) => setLinkOpacities(prev => ({...prev, 'cluster-track': parseFloat(e.target.value)}))}
+                className="w-16 h-1 bg-gray-700 rounded-lg appearance-none cursor-pointer"
+              />
+              <span className="text-xs text-gray-400 w-8">{linkOpacities['cluster-track']}</span>
+            </div>
+          </div>
+        )}
       </div>
 
       {/* Controls Panel - Right Side */}
@@ -696,23 +716,6 @@ const ForceTree: React.FC<ForceTreeProps> = ({
             />
             <span className="text-xs text-gray-400 w-8">{linkOpacities['cluster-artist']}</span>
           </div>
-          
-          {/* Conditionally show Cluster↔Track slider when track clustering is enabled */}
-          {trackClustering && (
-            <div className="flex items-center space-x-2">
-              <span className="text-xs text-gray-300 w-20">Cluster↔Track</span>
-              <input
-                type="range"
-                min="0"
-                max="1"
-                step="0.1"
-                value={linkOpacities['cluster-track']}
-                onChange={(e) => setLinkOpacities(prev => ({...prev, 'cluster-track': parseFloat(e.target.value)}))}
-                className="w-16 h-1 bg-gray-700 rounded-lg appearance-none cursor-pointer"
-              />
-              <span className="text-xs text-gray-400 w-8">{linkOpacities['cluster-track']}</span>
-            </div>
-          )}
         </div>
       </div>
       
