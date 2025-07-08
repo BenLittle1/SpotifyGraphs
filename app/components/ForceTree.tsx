@@ -31,10 +31,14 @@ const ForceTree: React.FC<ForceTreeProps> = ({
   linkOpacity = 0.4
 }) => {
   const svgRef = useRef<SVGSVGElement>(null);
+  const gRef = useRef<any>(null);
+  const simulationRef = useRef<any>(null);
+  const transformRef = useRef<any>(null);
   const [hoveredNode, setHoveredNode] = useState<ForceTreeNode | null>(null);
   const [selectedNode, setSelectedNode] = useState<ForceTreeNode | null>(null);
   const [downstreamNodes, setDownstreamNodes] = useState<Set<string>>(new Set());
 
+  // Initialize the visualization only once
   useEffect(() => {
     if (!svgRef.current || !data) return;
 
@@ -64,14 +68,21 @@ const ForceTree: React.FC<ForceTreeProps> = ({
 
     // Create container with zoom
     const g = svg.append('g');
+    gRef.current = g;
     
     const zoom = d3.zoom<SVGSVGElement, unknown>()
       .scaleExtent([0.1, 4])
       .on('zoom', (event) => {
         g.attr('transform', event.transform);
+        transformRef.current = event.transform;
       });
 
     svg.call(zoom);
+
+    // Restore previous transform if it exists
+    if (transformRef.current) {
+      svg.call(zoom.transform, transformRef.current);
+    }
 
     // Color scales
     const genreColors = d3.scaleOrdinal(d3.schemeSet3);
@@ -142,6 +153,8 @@ const ForceTree: React.FC<ForceTreeProps> = ({
         width / 2,
         height / 2
       ).strength(d => d.type === 'genre' ? 0.8 : 0.3));
+
+    simulationRef.current = simulation;
 
     // Create links
     const link = g.append('g')
@@ -337,7 +350,76 @@ const ForceTree: React.FC<ForceTreeProps> = ({
     return () => {
       simulation.stop();
     };
-  }, [data, width, height, chargeStrength, collisionRadius, linkDistance, gravity, nodeScale, linkOpacity]);
+  }, [data]); // Only depend on data changes
+
+  // Update visual properties when sliders change
+  useEffect(() => {
+    if (!gRef.current || !simulationRef.current) return;
+
+    const g = gRef.current;
+    const simulation = simulationRef.current;
+
+    // Update link opacity
+    g.selectAll('.link')
+      .attr('stroke-opacity', linkOpacity);
+
+    // Update node sizes
+    const sizeScale = d3.scaleLinear()
+      .domain([0, 100])
+      .range([5, 15]);
+
+    const genreSizeScale = d3.scaleLinear()
+      .domain([0, d3.max(data.nodes.filter(n => n.type === 'genre'), d => d.value) || 1000])
+      .range([20, 40]);
+
+    g.selectAll('.node circle')
+      .attr('r', (d: any) => {
+        const baseRadius = d.type === 'genre' ? 
+          genreSizeScale(d.value) : 
+          sizeScale(d.popularity || 50);
+        return baseRadius * nodeScale;
+      });
+
+    // Update forces
+    simulation
+      .force('charge', d3.forceManyBody<ForceTreeNode>()
+        .strength((d: any) => {
+          const nodeCount = data.nodes.length;
+          let scaleFactor = 1;
+          if (nodeCount > 2000) scaleFactor = 0.4;
+          else if (nodeCount > 1500) scaleFactor = 0.5;
+          else if (nodeCount > 1000) scaleFactor = 0.6;
+          else if (nodeCount > 800) scaleFactor = 0.7;
+          
+          if (d.type === 'genre') return -1000 * scaleFactor * chargeStrength;
+          if (d.type === 'artist') return -300 * scaleFactor * chargeStrength;
+          return -100 * scaleFactor * chargeStrength;
+        }))
+      .force('center', d3.forceCenter(width / 2, height / 2).strength(gravity))
+      .force('collision', d3.forceCollide<ForceTreeNode>()
+        .radius((d: any) => {
+          const baseRadius = d.type === 'genre' ? 
+            genreSizeScale(d.value) + 10 : 
+            sizeScale(d.popularity || 50) + 5;
+          return baseRadius * collisionRadius * nodeScale;
+        }));
+
+    // Update link distances
+    const linkForce = simulation.force('link') as any;
+    if (linkForce) {
+      linkForce.distance((d: any) => {
+        const sourceNode = data.nodes.find(n => n.id === (d.source.id || d.source));
+        const targetNode = data.nodes.find(n => n.id === (d.target.id || d.target));
+        if (sourceNode?.type === 'genre' && targetNode?.type === 'artist') return 150 * linkDistance;
+        if (sourceNode?.type === 'artist' && targetNode?.type === 'track') return 80 * linkDistance;
+        return 100 * linkDistance;
+      });
+    }
+
+    // Restart simulation with low alpha to apply changes smoothly
+    simulation.alpha(0.3).restart();
+
+  }, [chargeStrength, collisionRadius, linkDistance, gravity, nodeScale, linkOpacity, data, width, height]);
 
   return (
     <div className="relative">
