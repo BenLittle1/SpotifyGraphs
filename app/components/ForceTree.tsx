@@ -199,6 +199,7 @@ const ForceTree: React.FC<ForceTreeProps> = ({
       .enter().append('g')
       .attr('class', 'node')
       .attr('cursor', 'pointer')
+      .style('pointer-events', 'all')
       .call(d3.drag<SVGGElement, ForceTreeNode>()
         .on('start', dragstarted)
         .on('drag', dragged)
@@ -235,21 +236,49 @@ const ForceTree: React.FC<ForceTreeProps> = ({
       .attr('fill', '#fff')
       .attr('opacity', d => d.type === 'track' ? 0.7 : 1)
       .style('pointer-events', 'none')
-      .style('user-select', 'none');
+      .style('user-select', 'none')
+      .style('font-family', 'system-ui, sans-serif')
+      .style('font-weight', '500');
 
-    // Add hover and click interactions
+    // Add hover and click interactions with debouncing
+    let hoverTimeout: number | null = null;
+    let currentHoveredId: string | null = null;
+
+    const applyHoverEffect = (d: ForceTreeNode) => {
+      if (currentHoveredId === d.id) return; // Prevent redundant updates
+      currentHoveredId = d.id;
+      
+      const downstream = findDownstreamNodes(d.id);
+      const upstream = findUpstreamNodes(d.id);
+      
+      setHoveredNode(d);
+      setDownstreamNodes(downstream);
+      setUpstreamNodes(upstream);
+    };
+
+    const clearHoverEffect = () => {
+      currentHoveredId = null;
+      setHoveredNode(null);
+      setDownstreamNodes(new Set());
+      setUpstreamNodes(new Set());
+    };
+
     node
       .on('mouseenter', function(event, d) {
-        setHoveredNode(d);
-        const downstream = findDownstreamNodes(d.id);
-        const upstream = findUpstreamNodes(d.id);
-        setDownstreamNodes(downstream);
-        setUpstreamNodes(upstream);
+        // Clear any pending reset
+        if (hoverTimeout) {
+          clearTimeout(hoverTimeout);
+          hoverTimeout = null;
+        }
+        
+        // Apply hover effect immediately
+        applyHoverEffect(d);
       })
       .on('mouseleave', function(event, d) {
-        setHoveredNode(null);
-        setDownstreamNodes(new Set());
-        setUpstreamNodes(new Set());
+        // Add small delay to prevent flickering when moving between elements
+        hoverTimeout = setTimeout(() => {
+          clearHoverEffect();
+        }, 150);
       })
       .on('click', function(event, d) {
         event.stopPropagation();
@@ -553,96 +582,7 @@ const ForceTree: React.FC<ForceTreeProps> = ({
     
   }, [expandedNodes, data, linkDistance]);
 
-  // Separate effect to handle hover state changes
-  useEffect(() => {
-    if (!gRef.current) return;
-
-    const g = gRef.current;
-    const sizeScale = d3.scaleLinear()
-      .domain([0, 100])
-      .range([5, 15]);
-
-    const genreSizeScale = d3.scaleLinear()
-      .domain([0, d3.max(data.nodes.filter(n => n.type === 'genre'), d => d.value) || 1000])
-      .range([20, 40]);
-
-    const nodeColors: { [key: string]: string } = {
-      genre: '#ff00ff',
-      artist: '#00ffff',
-      track: '#00ff00'
-    };
-
-    // Update visual state based on hover
-    if (hoveredNode && downstreamNodes.size > 0) {
-      // Apply hover highlighting
-      g.selectAll('.node circle')
-        .transition()
-        .duration(200)
-        .attr('fill-opacity', (d: any) => downstreamNodes.has(d.id) ? 1 : 0.2)
-        .attr('r', (d: any) => {
-          const baseRadius = d.type === 'genre' ? 
-            genreSizeScale(d.value) : 
-            sizeScale(d.popularity || 50);
-          return downstreamNodes.has(d.id) ? baseRadius * nodeScale * 1.2 : baseRadius * nodeScale;
-        });
-
-      g.selectAll('.node text')
-        .transition()
-        .duration(200)
-        .attr('opacity', (d: any) => {
-          if (downstreamNodes.has(d.id)) return 1;
-          return d.type === 'track' ? 0.1 : 0.2;
-        });
-
-      g.selectAll('.link')
-        .transition()
-        .duration(200)
-        .attr('stroke-opacity', (l: any) => {
-          const sourceId = typeof l.source === 'string' ? l.source : (l.source as any).id;
-          const targetId = typeof l.target === 'string' ? l.target : (l.target as any).id;
-          return downstreamNodes.has(sourceId) && downstreamNodes.has(targetId) ? 0.8 : 0.05;
-        })
-        .attr('stroke', (l: any) => {
-          const sourceId = typeof l.source === 'string' ? l.source : (l.source as any).id;
-          const targetId = typeof l.target === 'string' ? l.target : (l.target as any).id;
-          if (downstreamNodes.has(sourceId) && downstreamNodes.has(targetId)) {
-            const sourceNode = data.nodes.find(n => n.id === sourceId);
-            return sourceNode ? nodeColors[sourceNode.type as string] || '#444' : '#444';
-          }
-          return '#444';
-        });
-    } else {
-      // Reset to normal state
-      g.selectAll('.node circle')
-        .transition()
-        .duration(200)
-        .attr('fill-opacity', 0.8)
-        .attr('r', (d: any) => {
-          const baseRadius = d.type === 'genre' ? 
-            genreSizeScale(d.value) : 
-            sizeScale(d.popularity || 50);
-          return baseRadius * nodeScale;
-        })
-        .attr('stroke-width', (d: any) => expandedNodes.has(d.id) ? 4 : 2)
-        .attr('stroke', (d: any) => {
-          if (expandedNodes.has(d.id)) {
-            return '#ffffff';
-          }
-          return nodeColors[d.type as string] || '#444';
-        });
-
-      g.selectAll('.node text')
-        .transition()
-        .duration(200)
-        .attr('opacity', (d: any) => d.type === 'track' ? 0.7 : 1);
-
-      g.selectAll('.link')
-        .transition()
-        .duration(200)
-        .attr('stroke-opacity', linkOpacity)
-        .attr('stroke', '#444');
-    }
-  }, [hoveredNode, downstreamNodes, nodeScale, linkOpacity, data, expandedNodes]);
+  // The hover effects are now handled directly in the main useEffect to prevent conflicts
 
   return (
     <div className="relative">

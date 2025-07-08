@@ -398,7 +398,14 @@ const ForceGraph: React.FC<ForceGraphProps> = ({ data, width = 1200, height = 80
       return upstreamLinks;
     };
 
-    node.on('mouseover', (event, d) => {
+    // Add hover interaction with improved event handling
+    let hoverTimeout: number | null = null;
+    let currentHoveredNode: string | null = null;
+
+    const applyHighlighting = (d: GraphNode) => {
+      if (currentHoveredNode === d.id) return; // Already highlighting this node
+      currentHoveredNode = d.id;
+
       // Find upstream nodes and links
       const upstreamNodes = findUpstreamNodes(d.id);
       const upstreamLinks = findUpstreamLinks(d.id, upstreamNodes);
@@ -459,12 +466,12 @@ const ForceGraph: React.FC<ForceGraphProps> = ({ data, width = 1200, height = 80
           ${d.group === 'track' || d.group === 'artist' ? `Popularity: ${d.popularity}<br/>` : ''}
           ${upstreamInfo ? `Path: ${upstreamInfo} → <strong>${d.name}</strong>` : ''}
         </div>
-      `)
-        .style('left', (event.pageX + 10) + 'px')
-        .style('top', (event.pageY - 28) + 'px')
-        .style('border-color', colorScale[d.group]);
-    })
-    .on('mouseout', () => {
+      `);
+    };
+
+    const resetHighlighting = () => {
+      currentHoveredNode = null;
+      
       // Reset all visual enhancements
       node.selectAll('circle')
         .attr('stroke-width', 2)
@@ -488,9 +495,41 @@ const ForceGraph: React.FC<ForceGraphProps> = ({ data, width = 1200, height = 80
         .attr('font-weight', 'bold');
 
       tooltip.transition()
-        .duration(500)
+        .duration(300)
         .style('opacity', 0);
-    })
+    };
+
+    node
+      .on('mouseenter', (event, d) => {
+        // Clear any existing timeout
+        if (hoverTimeout) {
+          clearTimeout(hoverTimeout);
+          hoverTimeout = null;
+        }
+        
+        // Apply highlighting immediately
+        applyHighlighting(d);
+        
+        // Update tooltip position
+        tooltip
+          .style('left', (event.pageX + 10) + 'px')
+          .style('top', (event.pageY - 28) + 'px')
+          .style('border-color', colorScale[d.group]);
+      })
+      .on('mousemove', (event, d) => {
+        // Update tooltip position on mouse move
+        if (currentHoveredNode === d.id) {
+          tooltip
+            .style('left', (event.pageX + 10) + 'px')
+            .style('top', (event.pageY - 28) + 'px');
+        }
+      })
+      .on('mouseleave', (event, d) => {
+        // Add a small delay before resetting to prevent flickering
+        hoverTimeout = setTimeout(() => {
+          resetHighlighting();
+        }, 100);
+      })
     .on('click', (event, d) => {
       if (d.spotifyUrl) {
         window.open(d.spotifyUrl, '_blank');
