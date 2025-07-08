@@ -113,7 +113,7 @@ const ForceTree: React.FC<ForceTreeProps> = ({
     const nodeColors: { [key: string]: string } = {
       genre: '#ff00ff', // Magenta/Pink for genres
       artist: '#A855F7', // Dark neon purple for artists
-      track: '#1E40AF'  // Darker vibrant blue for tracks
+      track: '#0080FF'  // Vibrant electric blue for tracks
     };
 
     // Size scales
@@ -390,7 +390,7 @@ const ForceTree: React.FC<ForceTreeProps> = ({
             const nodeColors: { [key: string]: string } = {
               genre: '#ff00ff',
               artist: '#A855F7',
-              track: '#1E40AF'
+              track: '#0080FF'
             };
             return sourceNode ? nodeColors[sourceNode.type as string] || '#444' : '#444';
           }
@@ -413,11 +413,7 @@ const ForceTree: React.FC<ForceTreeProps> = ({
           genreSizeScale(d.value) : 
           sizeScale(d.popularity || 50);
         
-        // Apply hover sizing for both upstream and downstream
-        if (hoveredNode && (downstreamNodes.size > 0 || upstreamNodes.size > 0)) {
-          const isRelevant = downstreamNodes.has(d.id) || upstreamNodes.has(d.id);
-          return isRelevant ? baseRadius * nodeScale * 1.2 : baseRadius * nodeScale;
-        }
+        // Keep consistent sizing during hover to prevent node movement
         return baseRadius * nodeScale;
       })
       .attr('fill-opacity', (d: any) => {
@@ -436,7 +432,7 @@ const ForceTree: React.FC<ForceTreeProps> = ({
         const nodeColors: { [key: string]: string } = {
           genre: '#ff00ff',
           artist: '#A855F7',
-          track: '#1E40AF'
+          track: '#0080FF'
         };
         return nodeColors[d.type as string] || '#444';
       });
@@ -498,8 +494,7 @@ const ForceTree: React.FC<ForceTreeProps> = ({
       });
     }
 
-    // Restart simulation with low alpha to apply changes smoothly
-    simulation.alpha(0.3).restart();
+    // Don't restart simulation during hover to prevent node movement
 
   }, [chargeStrength, collisionRadius, linkDistance, gravity, nodeScale, linkOpacity, data, width, height, expandedNodes, downstreamNodes, upstreamNodes, hoveredNode]);
 
@@ -603,7 +598,7 @@ const ForceTree: React.FC<ForceTreeProps> = ({
             transform: 'translateX(-50%)',
             border: `1px solid ${
               hoveredNode.type === 'genre' ? '#ff00ff' :
-              hoveredNode.type === 'artist' ? '#A855F7' : '#1E40AF'
+              hoveredNode.type === 'artist' ? '#A855F7' : '#0080FF'
             }`
           }}
         >
