@@ -87,7 +87,7 @@ const ForceTree: React.FC<ForceTreeProps> = ({
 
     // Color scales
     const genreColors = d3.scaleOrdinal(d3.schemeSet3);
-    const nodeColors = {
+    const nodeColors: { [key: string]: string } = {
       genre: '#ff00ff', // Magenta/Pink for genres
       artist: '#00ffff', // Cyan for artists
       track: '#00ff00'  // Green for tracks
@@ -189,9 +189,9 @@ const ForceTree: React.FC<ForceTreeProps> = ({
           sizeScale(d.popularity || 50);
         return baseRadius * nodeScale;
       })
-      .attr('fill', d => nodeColors[d.type])
+      .attr('fill', d => nodeColors[d.type as string] || '#444')
       .attr('fill-opacity', 0.8)
-      .attr('stroke', d => nodeColors[d.type])
+      .attr('stroke', d => nodeColors[d.type as string] || '#444')
       .attr('stroke-width', 2)
       .style('filter', 'url(#glow)');
 
@@ -321,12 +321,12 @@ const ForceTree: React.FC<ForceTreeProps> = ({
           const targetId = typeof l.target === 'string' ? l.target : (l.target as any).id;
           if (downstreamNodes.has(sourceId) && downstreamNodes.has(targetId)) {
             const sourceNode = data.nodes.find(n => n.id === sourceId);
-            const nodeColors = {
+            const nodeColors: { [key: string]: string } = {
               genre: '#ff00ff',
               artist: '#00ffff',
               track: '#00ff00'
             };
-            return sourceNode ? nodeColors[sourceNode.type] : '#444';
+            return sourceNode ? nodeColors[sourceNode.type as string] || '#444' : '#444';
           }
         }
         return '#444';
@@ -365,12 +365,12 @@ const ForceTree: React.FC<ForceTreeProps> = ({
         if (expandedNodes.has(d.id)) {
           return '#ffffff';
         }
-        const nodeColors = {
+        const nodeColors: { [key: string]: string } = {
           genre: '#ff00ff',
           artist: '#00ffff',
           track: '#00ff00'
         };
-        return nodeColors[d.type];
+        return nodeColors[d.type as string] || '#444';
       });
 
     // Update text opacity
@@ -526,7 +526,7 @@ const ForceTree: React.FC<ForceTreeProps> = ({
       .domain([0, d3.max(data.nodes.filter(n => n.type === 'genre'), d => d.value) || 1000])
       .range([20, 40]);
 
-    const nodeColors = {
+    const nodeColors: { [key: string]: string } = {
       genre: '#ff00ff',
       artist: '#00ffff',
       track: '#00ff00'
@@ -567,7 +567,7 @@ const ForceTree: React.FC<ForceTreeProps> = ({
           const targetId = typeof l.target === 'string' ? l.target : (l.target as any).id;
           if (downstreamNodes.has(sourceId) && downstreamNodes.has(targetId)) {
             const sourceNode = data.nodes.find(n => n.id === sourceId);
-            return sourceNode ? nodeColors[sourceNode.type] : '#444';
+            return sourceNode ? nodeColors[sourceNode.type as string] || '#444' : '#444';
           }
           return '#444';
         });
@@ -588,7 +588,7 @@ const ForceTree: React.FC<ForceTreeProps> = ({
           if (expandedNodes.has(d.id)) {
             return '#ffffff';
           }
-          return nodeColors[d.type];
+          return nodeColors[d.type as string] || '#444';
         });
 
       g.selectAll('.node text')
