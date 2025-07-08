@@ -37,6 +37,7 @@ const ForceTree: React.FC<ForceTreeProps> = ({
   const [hoveredNode, setHoveredNode] = useState<ForceTreeNode | null>(null);
   const [selectedNode, setSelectedNode] = useState<ForceTreeNode | null>(null);
   const [downstreamNodes, setDownstreamNodes] = useState<Set<string>>(new Set());
+  const [expandedNodes, setExpandedNodes] = useState<Set<string>>(new Set());
 
   // Initialize the visualization only once
   useEffect(() => {
@@ -226,9 +227,23 @@ const ForceTree: React.FC<ForceTreeProps> = ({
       })
       .on('click', function(event, d) {
         event.stopPropagation();
-        if (d.spotifyUrl) {
+        
+        // Toggle expansion state
+        setExpandedNodes(prev => {
+          const newExpanded = new Set(prev);
+          if (newExpanded.has(d.id)) {
+            newExpanded.delete(d.id);
+          } else {
+            newExpanded.add(d.id);
+          }
+          return newExpanded;
+        });
+        
+        // Shift+click opens in Spotify
+        if (event.shiftKey && d.spotifyUrl) {
           window.open(d.spotifyUrl, '_blank');
         }
+        
         setSelectedNode(d);
       });
 
@@ -344,6 +359,18 @@ const ForceTree: React.FC<ForceTreeProps> = ({
           return downstreamNodes.has(d.id) ? 1 : 0.2;
         }
         return 0.8;
+      })
+      .attr('stroke-width', (d: any) => expandedNodes.has(d.id) ? 4 : 2)
+      .attr('stroke', (d: any) => {
+        if (expandedNodes.has(d.id)) {
+          return '#ffffff';
+        }
+        const nodeColors = {
+          genre: '#ff00ff',
+          artist: '#00ffff',
+          track: '#00ff00'
+        };
+        return nodeColors[d.type];
       });
 
     // Update text opacity
@@ -385,8 +412,17 @@ const ForceTree: React.FC<ForceTreeProps> = ({
     const linkForce = simulation.force('link') as any;
     if (linkForce) {
       linkForce.distance((d: any) => {
-        const sourceNode = data.nodes.find(n => n.id === (d.source.id || d.source));
-        const targetNode = data.nodes.find(n => n.id === (d.target.id || d.target));
+        const sourceId = d.source.id || d.source;
+        const targetId = d.target.id || d.target;
+        const sourceNode = data.nodes.find(n => n.id === sourceId);
+        const targetNode = data.nodes.find(n => n.id === targetId);
+        
+        // If parent is expanded, increase distance to children
+        if (expandedNodes.has(sourceId)) {
+          return 150; // Fixed expansion distance
+        }
+        
+        // Normal distances
         if (sourceNode?.type === 'genre' && targetNode?.type === 'artist') return 150 * linkDistance;
         if (sourceNode?.type === 'artist' && targetNode?.type === 'track') return 80 * linkDistance;
         return 100 * linkDistance;
@@ -396,7 +432,86 @@ const ForceTree: React.FC<ForceTreeProps> = ({
     // Restart simulation with low alpha to apply changes smoothly
     simulation.alpha(0.3).restart();
 
-  }, [chargeStrength, collisionRadius, linkDistance, gravity, nodeScale, linkOpacity, data, width, height]);
+  }, [chargeStrength, collisionRadius, linkDistance, gravity, nodeScale, linkOpacity, data, width, height, expandedNodes]);
+
+  // Handle cluster expansion effect
+  useEffect(() => {
+    if (!simulationRef.current || !gRef.current) return;
+    
+    const simulation = simulationRef.current;
+    const nodes = simulation.nodes();
+    
+    // Create a map of parent to children
+    const parentToChildren = new Map<string, ForceTreeNode[]>();
+    data.links.forEach(link => {
+      const sourceId = typeof link.source === 'string' ? link.source : (link.source as any).id;
+      const targetId = typeof link.target === 'string' ? link.target : (link.target as any).id;
+      
+      if (!parentToChildren.has(sourceId)) {
+        parentToChildren.set(sourceId, []);
+      }
+      
+      const targetNode = nodes.find((n: any) => n.id === targetId);
+      if (targetNode) {
+        parentToChildren.get(sourceId)!.push(targetNode);
+      }
+    });
+    
+    // Apply expansion forces
+    nodes.forEach((node: any) => {
+      const children = parentToChildren.get(node.id) || [];
+      
+      if (expandedNodes.has(node.id) && children.length > 0) {
+        // Arrange children in a circle around the parent
+        const angleStep = (2 * Math.PI) / children.length;
+        const expansionRadius = 150; // Distance from parent
+        
+        children.forEach((child: any, index: number) => {
+          const angle = index * angleStep;
+          const targetX = node.x + expansionRadius * Math.cos(angle);
+          const targetY = node.y + expansionRadius * Math.sin(angle);
+          
+          // Apply a strong force to move child to target position
+          if (!child.fx && !child.fy) { // Only if not being dragged
+            const dx = targetX - child.x;
+            const dy = targetY - child.y;
+            const distance = Math.sqrt(dx * dx + dy * dy);
+            
+            if (distance > 5) {
+              const force = 0.1; // Strength of expansion force
+              child.vx += (dx / distance) * force * distance;
+              child.vy += (dy / distance) * force * distance;
+            }
+          }
+        });
+      }
+    });
+    
+    // Update link distances based on expansion
+    const linkForce = simulation.force('link') as any;
+    if (linkForce) {
+      linkForce.distance((d: any) => {
+        const sourceId = d.source.id || d.source;
+        const targetId = d.target.id || d.target;
+        const sourceNode = data.nodes.find(n => n.id === sourceId);
+        const targetNode = data.nodes.find(n => n.id === targetId);
+        
+        // If parent is expanded, increase distance to children
+        if (expandedNodes.has(sourceId)) {
+          return 150; // Fixed expansion distance
+        }
+        
+        // Normal distances
+        if (sourceNode?.type === 'genre' && targetNode?.type === 'artist') return 150 * linkDistance;
+        if (sourceNode?.type === 'artist' && targetNode?.type === 'track') return 80 * linkDistance;
+        return 100 * linkDistance;
+      });
+    }
+    
+    // Restart simulation to apply changes
+    simulation.alpha(0.5).restart();
+    
+  }, [expandedNodes, data, linkDistance]);
 
   // Separate effect to handle hover state changes
   useEffect(() => {
@@ -467,6 +582,13 @@ const ForceTree: React.FC<ForceTreeProps> = ({
             genreSizeScale(d.value) : 
             sizeScale(d.popularity || 50);
           return baseRadius * nodeScale;
+        })
+        .attr('stroke-width', (d: any) => expandedNodes.has(d.id) ? 4 : 2)
+        .attr('stroke', (d: any) => {
+          if (expandedNodes.has(d.id)) {
+            return '#ffffff';
+          }
+          return nodeColors[d.type];
         });
 
       g.selectAll('.node text')
@@ -480,7 +602,7 @@ const ForceTree: React.FC<ForceTreeProps> = ({
         .attr('stroke-opacity', linkOpacity)
         .attr('stroke', '#444');
     }
-  }, [hoveredNode, downstreamNodes, nodeScale, linkOpacity, data]);
+  }, [hoveredNode, downstreamNodes, nodeScale, linkOpacity, data, expandedNodes]);
 
   return (
     <div className="relative">
@@ -512,6 +634,9 @@ const ForceTree: React.FC<ForceTreeProps> = ({
           {hoveredNode.popularity && (
             <div className="text-sm">Popularity: {hoveredNode.popularity}</div>
           )}
+          <div className="text-xs text-gray-500 mt-1">
+            {expandedNodes.has(hoveredNode.id) ? 'Click to collapse' : 'Click to expand'}
+          </div>
         </div>
       )}
       
@@ -529,6 +654,11 @@ const ForceTree: React.FC<ForceTreeProps> = ({
           <div className="flex items-center gap-2">
             <div className="w-3 h-3 rounded-full" style={{ backgroundColor: '#00ff00' }}></div>
             <span>Tracks</span>
+          </div>
+          <div className="mt-2 pt-2 border-t border-gray-700 text-xs text-gray-400">
+            <div>Click: Expand/Collapse</div>
+            <div>Shift+Click: Open in Spotify</div>
+            <div>Drag: Move nodes</div>
           </div>
         </div>
       </div>
