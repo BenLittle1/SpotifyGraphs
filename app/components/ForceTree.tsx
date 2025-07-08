@@ -625,7 +625,7 @@ const ForceTree: React.FC<ForceTreeProps> = ({
 
   return (
     <div className="relative">
-      {/* Left Panel - Dynamic Mode + Track Clustering Opacity */}
+      {/* Left Panel - Dynamic Mode + Track Clustering */}
       <div className="absolute top-4 left-4 z-20 bg-gray-800 p-3 rounded-lg border border-gray-600 space-y-3">
         <label className="flex items-center space-x-2 text-white text-sm">
           <input
@@ -635,6 +635,16 @@ const ForceTree: React.FC<ForceTreeProps> = ({
             className="w-4 h-4 text-purple-600 bg-gray-700 border-gray-600 rounded focus:ring-purple-500 focus:ring-2"
           />
           <span>Dynamic Mode</span>
+        </label>
+        
+        <label className="flex items-center space-x-2 text-white text-sm">
+          <input
+            type="checkbox"
+            checked={trackClustering}
+            onChange={(e) => setTrackClustering(e.target.checked)}
+            className="w-4 h-4 text-blue-600 bg-gray-700 border-gray-600 rounded focus:ring-blue-500 focus:ring-2"
+          />
+          <span>Track Clustering</span>
         </label>
         
         {/* Track Clustering Opacity - Only show when track clustering is enabled */}
@@ -660,17 +670,6 @@ const ForceTree: React.FC<ForceTreeProps> = ({
 
       {/* Controls Panel - Right Side */}
       <div className="absolute top-4 right-4 z-20 bg-gray-800 p-3 rounded-lg border border-gray-600 space-y-3">
-        {/* Track Clustering Toggle */}
-        <label className="flex items-center space-x-2 text-white text-sm">
-          <input
-            type="checkbox"
-            checked={trackClustering}
-            onChange={(e) => setTrackClustering(e.target.checked)}
-            className="w-4 h-4 text-blue-600 bg-gray-700 border-gray-600 rounded focus:ring-blue-500 focus:ring-2"
-          />
-          <span>Track Clustering</span>
-        </label>
-        
         {/* Link Opacity Controls */}
         <div className="space-y-2">
           <div className="text-white text-xs font-semibold">Link Opacity</div>
