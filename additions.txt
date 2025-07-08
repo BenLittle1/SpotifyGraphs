@@ -1,6 +1,0 @@
-Charge Strength - Controls node repulsion (tight ↔ spread)
-Node Size - Scales all node sizes (small ↔ large)
-Link Opacity - Controls connection visibility (faint ↔ strong)
-Link Distance - Controls connection lengths (compact ↔ loose)
-Orbital Distance - Controls radial positioning (close ↔ far)
-Gravity - Controls centering force (weak ↔ strong)
