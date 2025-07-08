@@ -26,8 +26,11 @@ export function processSpotifyDataToGraph(
     });
   });
 
-  // Create artist nodes
+  // Create artist nodes (deduplicate by ID just in case)
+  const processedArtistIds = new Set<string>();
   artists.forEach(artist => {
+    if (processedArtistIds.has(artist.id)) return; // Skip duplicates
+    
     const artistNode: GraphNode = {
       id: `artist-${artist.id}`,
       name: artist.name,
@@ -39,6 +42,7 @@ export function processSpotifyDataToGraph(
     };
     nodeMap.set(artistNode.id, artistNode);
     nodes.push(artistNode);
+    processedArtistIds.add(artist.id);
 
     // Link artists to their genres
     artist.genres.forEach(genre => {

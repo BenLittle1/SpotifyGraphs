@@ -103,30 +103,44 @@ export function processSpotifyDataToForceTree(
   const artistNodeCount = Math.floor(maxNodes * artistRatio);
   const trackNodeCount = maxNodes - sortedGenres.length - artistNodeCount; // Rest for tracks
   
-  let artistCount = 0;
-  const allArtistsWithGenres: Array<[string, string, SpotifyTrack[]]> = [];
+  // Collect unique artists and their total popularity across all genres
+  const artistPopularityMap = new Map<string, number>();
+  const artistGenresMap = new Map<string, string[]>();
   
-  // Collect all artists with their genres
   sortedGenres.forEach(genre => {
     const artistsInGenre = genreArtistMap.get(genre)!;
     artistsInGenre.forEach((tracks, artistId) => {
-      allArtistsWithGenres.push([artistId, genre, tracks]);
+      // Calculate total popularity for this artist
+      const totalPop = tracks.reduce((sum, track) => sum + (track.popularity || 0), 0);
+      
+      // Add to or update artist's total popularity
+      if (artistPopularityMap.has(artistId)) {
+        artistPopularityMap.set(artistId, artistPopularityMap.get(artistId)! + totalPop);
+      } else {
+        artistPopularityMap.set(artistId, totalPop);
+      }
+      
+      // Track which genres this artist belongs to
+      if (!artistGenresMap.has(artistId)) {
+        artistGenresMap.set(artistId, []);
+      }
+      artistGenresMap.get(artistId)!.push(genre);
     });
   });
   
-  // Sort all artists by total popularity
-  allArtistsWithGenres.sort((a, b) => {
-    const popA = a[2].reduce((sum, track) => sum + (track.popularity || 0), 0);
-    const popB = b[2].reduce((sum, track) => sum + (track.popularity || 0), 0);
-    return popB - popA;
-  });
+  // Sort artists by total popularity and get unique artists
+  const sortedArtistIds = Array.from(artistPopularityMap.keys())
+    .sort((a, b) => artistPopularityMap.get(b)! - artistPopularityMap.get(a)!);
   
-  // Add top artists up to the limit
-  allArtistsWithGenres.slice(0, artistNodeCount).forEach(([artistId, genre, artistTracks]) => {
+  // Create unique artist nodes
+  const createdArtistNodes = new Set<string>();
+  
+  sortedArtistIds.slice(0, artistNodeCount).forEach(artistId => {
+    if (createdArtistNodes.has(artistId)) return; // Skip if already created
+    
     const artist = artistMap.get(artistId);
     if (!artist) return;
     
-    const genreId = `genre-${genre}`;
     const artistNodeId = `artist-${artistId}`;
     const artistNode: ForceTreeNode = {
       id: artistNodeId,
@@ -137,18 +151,38 @@ export function processSpotifyDataToForceTree(
       imageUrl: artist.images?.[0]?.url,
       spotifyUrl: artist.external_urls?.spotify,
       depth: 1,
-      parent: genreId
+      parent: undefined // Will be set to primary genre below
     };
     
     nodes.push(artistNode);
     nodeMap.set(artistNodeId, artistNode);
-    artistCount++;
+    createdArtistNodes.add(artistId);
     
-    // Create link from genre to artist
-    links.push({
-      source: genreId,
-      target: artistNodeId,
-      value: artistTracks.length
+    // Link to all genres this artist belongs to (from selected genres)
+    const artistGenres = artistGenresMap.get(artistId) || [];
+    let primaryGenre: string | null = null;
+    
+    artistGenres.forEach(genre => {
+      if (sortedGenres.includes(genre)) {
+        const genreId = `genre-${genre}`;
+        
+        // Set the first genre as primary parent
+        if (!primaryGenre) {
+          primaryGenre = genreId;
+          artistNode.parent = genreId;
+        }
+        
+        // Get tracks for this artist in this genre
+        const artistsInGenre = genreArtistMap.get(genre)!;
+        const tracksInGenre = artistsInGenre.get(artistId) || [];
+        
+        // Create link from genre to artist
+        links.push({
+          source: genreId,
+          target: artistNodeId,
+          value: tracksInGenre.length
+        });
+      }
     });
   });
 
