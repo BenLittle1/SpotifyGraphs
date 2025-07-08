@@ -17,6 +17,7 @@ export default function ForceTreePage() {
   const [timeRange, setTimeRange] = useState<'short_term' | 'medium_term' | 'long_term'>('medium_term');
   const [nodeCount, setNodeCount] = useState(400);
   const [showNodeSelector, setShowNodeSelector] = useState(true);
+  const [chargeStrength, setChargeStrength] = useState(1.0);
 
   useEffect(() => {
     if (status === 'loading') return;
@@ -40,6 +41,9 @@ export default function ForceTreePage() {
       // Fetch top tracks
       trackPromises.push(spotifyClient.getTopTracks(50, timeRange));
       
+      // Fetch recently played tracks (adds variety)
+      trackPromises.push(spotifyClient.getRecentlyPlayed(50));
+      
       // Fetch multiple pages of saved tracks to get more data
       const savedTrackPages = Math.ceil(nodeCount / 100); // More pages for higher node counts
       for (let i = 0; i < savedTrackPages; i++) {
@@ -48,6 +52,45 @@ export default function ForceTreePage() {
       
       const trackResponses = await Promise.all(trackPromises);
       const allTracks = trackResponses.flat();
+
+      // If we need more tracks, fetch from playlists
+      if (nodeCount > 800 && allTracks.length < nodeCount) {
+        try {
+          // Fetch user's playlists
+          const playlists = await spotifyClient.getUserPlaylists(50);
+          
+          // Sort playlists by track count (prioritize larger playlists)
+          const sortedPlaylists = playlists
+            .filter(p => p.tracks.total > 0)
+            .sort((a, b) => b.tracks.total - a.tracks.total);
+          
+          // Fetch tracks from top playlists
+          const playlistTrackPromises = [];
+          let estimatedTracks = allTracks.length;
+          
+          for (const playlist of sortedPlaylists) {
+            if (estimatedTracks >= nodeCount * 1.5) break; // Get extra to account for duplicates
+            
+            // Fetch tracks from this playlist
+            const pages = Math.ceil(Math.min(playlist.tracks.total, 300) / 100); // Limit to 300 tracks per playlist
+            for (let page = 0; page < pages; page++) {
+              playlistTrackPromises.push(
+                spotifyClient.getPlaylistTracks(playlist.id, 100, page * 100)
+              );
+            }
+            estimatedTracks += Math.min(playlist.tracks.total, 300);
+          }
+          
+          if (playlistTrackPromises.length > 0) {
+            const playlistTrackResponses = await Promise.all(playlistTrackPromises);
+            const playlistTracks = playlistTrackResponses.flat();
+            allTracks.push(...playlistTracks);
+          }
+        } catch (playlistError) {
+          console.warn('Failed to fetch playlist tracks:', playlistError);
+          // Continue with tracks we have
+        }
+      }
 
       // Remove duplicates
       const uniqueTracks = Array.from(
@@ -88,7 +131,8 @@ export default function ForceTreePage() {
     if (nodeCount <= 400) return 'Creating your music tree...';
     if (nodeCount <= 800) return 'Building connections between your music...';
     if (nodeCount <= 1200) return 'Mapping your entire music universe...';
-    return 'Processing massive music constellation...';
+    if (nodeCount <= 2000) return 'Processing massive music constellation...';
+    return 'Assembling the complete musical cosmos from your playlists...';
   };
 
   if (status === 'loading' || !session) {
@@ -153,7 +197,7 @@ export default function ForceTreePage() {
               <input
                 type="range"
                 min="200"
-                max="1500"
+                max="2500"
                 step="100"
                 value={nodeCount}
                 onChange={(e) => setNodeCount(Number(e.target.value))}
@@ -162,7 +206,27 @@ export default function ForceTreePage() {
               />
               <div className="flex justify-between text-xs text-gray-500 mt-1">
                 <span>200</span>
-                <span>1500</span>
+                <span>2500</span>
+              </div>
+            </div>
+
+            {/* Charge Strength Slider */}
+            <div>
+              <label className="block text-sm font-medium text-gray-400 mb-2">
+                Charge Strength: {chargeStrength.toFixed(2)}
+              </label>
+              <input
+                type="range"
+                min="0.2"
+                max="2.0"
+                step="0.1"
+                value={chargeStrength}
+                onChange={(e) => setChargeStrength(Number(e.target.value))}
+                className="w-full h-2 bg-gray-700 rounded-lg appearance-none cursor-pointer slider"
+              />
+              <div className="flex justify-between text-xs text-gray-500 mt-1">
+                <span>Tight</span>
+                <span>Spread</span>
               </div>
             </div>
 
@@ -245,7 +309,7 @@ export default function ForceTreePage() {
                   <input
                     type="range"
                     min="200"
-                    max="1500"
+                    max="2500"
                     step="100"
                     value={nodeCount}
                     onChange={(e) => setNodeCount(Number(e.target.value))}
@@ -261,8 +325,9 @@ export default function ForceTreePage() {
                 <div className="text-sm text-gray-500 mb-6">
                   {nodeCount <= 400 && "Quick loading, focused on top items"}
                   {nodeCount > 400 && nodeCount <= 800 && "Good balance of detail and performance"}
-                  {nodeCount > 800 && nodeCount <= 1200 && "High detail, may take longer to stabilize"}
-                  {nodeCount > 1200 && "Maximum detail, extensive processing required"}
+                  {nodeCount > 800 && nodeCount <= 1200 && "High detail, includes saved tracks"}
+                  {nodeCount > 1200 && nodeCount <= 2000 && "Very high detail, includes playlist tracks"}
+                  {nodeCount > 2000 && "Maximum detail, pulls from all your playlists"}
                 </div>
 
                 <button
@@ -303,6 +368,7 @@ export default function ForceTreePage() {
               data={treeData}
               width={window.innerWidth - 320}
               height={window.innerHeight - 73}
+              chargeStrength={chargeStrength}
             />
           )}
         </div>

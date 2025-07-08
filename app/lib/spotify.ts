@@ -197,6 +197,92 @@ class SpotifyClient {
       throw error;
     }
   }
+
+  async getUserPlaylists(limit = 50, offset = 0): Promise<any[]> {
+    try {
+      const response = await this.fetchWithRetry(
+        `${this.baseUrl}/me/playlists?limit=${limit}&offset=${offset}`
+      );
+
+      if (!response.ok) {
+        const contentType = response.headers.get('content-type');
+        if (contentType && contentType.includes('text/html')) {
+          throw new Error('Authentication failed. Please sign out and sign back in.');
+        }
+        
+        try {
+          const error: SpotifyError = await response.json();
+          throw new Error(`Spotify API Error: ${error.error.message}`);
+        } catch (jsonError) {
+          throw new Error('Authentication failed. Please sign out and sign back in.');
+        }
+      }
+
+      const data = await response.json();
+      return data.items;
+    } catch (error) {
+      console.error('Error fetching playlists:', error);
+      throw error;
+    }
+  }
+
+  async getRecentlyPlayed(limit = 50): Promise<SpotifyTrack[]> {
+    try {
+      const response = await this.fetchWithRetry(
+        `${this.baseUrl}/me/player/recently-played?limit=${limit}`
+      );
+
+      if (!response.ok) {
+        const contentType = response.headers.get('content-type');
+        if (contentType && contentType.includes('text/html')) {
+          throw new Error('Authentication failed. Please sign out and sign back in.');
+        }
+        
+        try {
+          const error: SpotifyError = await response.json();
+          throw new Error(`Spotify API Error: ${error.error.message}`);
+        } catch (jsonError) {
+          throw new Error('Authentication failed. Please sign out and sign back in.');
+        }
+      }
+
+      const data = await response.json();
+      return data.items.map((item: any) => item.track);
+    } catch (error) {
+      console.error('Error fetching recently played tracks:', error);
+      throw error;
+    }
+  }
+
+  async getPlaylistTracks(playlistId: string, limit = 100, offset = 0): Promise<SpotifyTrack[]> {
+    try {
+      const response = await this.fetchWithRetry(
+        `${this.baseUrl}/playlists/${playlistId}/tracks?limit=${limit}&offset=${offset}`
+      );
+
+      if (!response.ok) {
+        const contentType = response.headers.get('content-type');
+        if (contentType && contentType.includes('text/html')) {
+          throw new Error('Authentication failed. Please sign out and sign back in.');
+        }
+        
+        try {
+          const error: SpotifyError = await response.json();
+          throw new Error(`Spotify API Error: ${error.error.message}`);
+        } catch (jsonError) {
+          throw new Error('Authentication failed. Please sign out and sign back in.');
+        }
+      }
+
+      const data = await response.json();
+      return data.items
+        .filter((item: any) => item.track && item.track.id) // Filter out null or local tracks
+        .map((item: any) => item.track);
+    } catch (error) {
+      console.error('Error fetching playlist tracks:', error);
+      throw error;
+    }
+  }
 }
 
 export default SpotifyClient; 

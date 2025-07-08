@@ -11,9 +11,10 @@ interface ForceTreeProps {
   };
   width: number;
   height: number;
+  chargeStrength?: number;
 }
 
-const ForceTree: React.FC<ForceTreeProps> = ({ data, width, height }) => {
+const ForceTree: React.FC<ForceTreeProps> = ({ data, width, height, chargeStrength = 1.0 }) => {
   const svgRef = useRef<SVGSVGElement>(null);
   const [hoveredNode, setHoveredNode] = useState<ForceTreeNode | null>(null);
   const [selectedNode, setSelectedNode] = useState<ForceTreeNode | null>(null);
@@ -88,13 +89,17 @@ const ForceTree: React.FC<ForceTreeProps> = ({ data, width, height }) => {
         .strength(0.5))
       .force('charge', d3.forceManyBody<ForceTreeNode>()
         .strength(d => {
-          // Adjust charge strength based on total node count
+          // Adjust charge strength based on total node count and user setting
           const nodeCount = data.nodes.length;
-          const scaleFactor = nodeCount > 800 ? 0.7 : 1;
+          let scaleFactor = 1;
+          if (nodeCount > 2000) scaleFactor = 0.4;
+          else if (nodeCount > 1500) scaleFactor = 0.5;
+          else if (nodeCount > 1000) scaleFactor = 0.6;
+          else if (nodeCount > 800) scaleFactor = 0.7;
           
-          if (d.type === 'genre') return -1000 * scaleFactor;
-          if (d.type === 'artist') return -300 * scaleFactor;
-          return -100 * scaleFactor;
+          if (d.type === 'genre') return -1000 * scaleFactor * chargeStrength;
+          if (d.type === 'artist') return -300 * scaleFactor * chargeStrength;
+          return -100 * scaleFactor * chargeStrength;
         }))
       .force('center', d3.forceCenter(width / 2, height / 2))
       .force('collision', d3.forceCollide<ForceTreeNode>()
@@ -107,7 +112,11 @@ const ForceTree: React.FC<ForceTreeProps> = ({ data, width, height }) => {
         d => {
           // Adjust radial distances based on node count
           const nodeCount = data.nodes.length;
-          const distanceScale = nodeCount > 800 ? 1.3 : 1;
+          let distanceScale = 1;
+          if (nodeCount > 2000) distanceScale = 1.8;
+          else if (nodeCount > 1500) distanceScale = 1.6;
+          else if (nodeCount > 1000) distanceScale = 1.4;
+          else if (nodeCount > 800) distanceScale = 1.3;
           
           if (d.type === 'genre') return 0;
           if (d.type === 'artist') return 200 * distanceScale;
@@ -307,7 +316,7 @@ const ForceTree: React.FC<ForceTreeProps> = ({ data, width, height }) => {
     return () => {
       simulation.stop();
     };
-  }, [data, width, height]);
+  }, [data, width, height, chargeStrength]);
 
   return (
     <div className="relative">
