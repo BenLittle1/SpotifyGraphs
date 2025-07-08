@@ -40,10 +40,12 @@ const ForceTree: React.FC<ForceTreeProps> = ({
   const [upstreamNodes, setUpstreamNodes] = useState<Set<string>>(new Set());
   const [expandedNodes, setExpandedNodes] = useState<Set<string>>(new Set());
   const [dynamicMode, setDynamicMode] = useState<boolean>(false);
+  const [trackClustering, setTrackClustering] = useState<boolean>(false);
   const [linkOpacities, setLinkOpacities] = useState({
     'genre-artist': 0.6,
     'artist-track': 0.8,
     'cluster-artist': 0.4,
+    'cluster-track': 0.3,
   });
 
   // Initialize the visualization only once
@@ -202,11 +204,19 @@ const ForceTree: React.FC<ForceTreeProps> = ({
 
     simulationRef.current = simulation;
 
+    // Filter links based on track clustering setting
+    const filteredLinks = data.links.filter(link => {
+      if (!trackClustering && link.type === 'cluster-track') {
+        return false; // Hide cluster-track links when track clustering is disabled
+      }
+      return true;
+    });
+
     // Create links
     const link = g.append('g')
       .attr('class', 'links')
       .selectAll('line')
-      .data(data.links)
+      .data(filteredLinks)
       .enter().append('line')
       .attr('class', 'link')
       .attr('stroke', '#444')
@@ -352,7 +362,7 @@ const ForceTree: React.FC<ForceTreeProps> = ({
       node.attr('transform', d => `translate(${d.x},${d.y})`);
     });
 
-    (simulation.force('link') as any).links(data.links);
+    (simulation.force('link') as any).links(filteredLinks);
 
     // Drag functions
     function dragstarted(event: any, d: ForceTreeNode) {
@@ -530,7 +540,7 @@ const ForceTree: React.FC<ForceTreeProps> = ({
       simulation.alpha(0.3).restart();
     }
 
-  }, [chargeStrength, collisionRadius, linkDistance, gravity, nodeScale, linkOpacity, data, width, height, expandedNodes, downstreamNodes, upstreamNodes, hoveredNode, dynamicMode, linkOpacities]);
+  }, [chargeStrength, collisionRadius, linkDistance, gravity, nodeScale, linkOpacity, data, width, height, expandedNodes, downstreamNodes, upstreamNodes, hoveredNode, dynamicMode, linkOpacities, trackClustering]);
 
   // Handle cluster expansion effect
   useEffect(() => {
@@ -615,9 +625,8 @@ const ForceTree: React.FC<ForceTreeProps> = ({
 
   return (
     <div className="relative">
-      {/* Controls Panel */}
-      <div className="absolute top-4 right-4 z-20 bg-gray-800 p-3 rounded-lg border border-gray-600 space-y-3">
-        {/* Dynamic Mode Toggle */}
+      {/* Dynamic Mode Toggle - Left Side */}
+      <div className="absolute top-4 left-4 z-20 bg-gray-800 p-3 rounded-lg border border-gray-600">
         <label className="flex items-center space-x-2 text-white text-sm">
           <input
             type="checkbox"
@@ -626,6 +635,20 @@ const ForceTree: React.FC<ForceTreeProps> = ({
             className="w-4 h-4 text-purple-600 bg-gray-700 border-gray-600 rounded focus:ring-purple-500 focus:ring-2"
           />
           <span>Dynamic Mode</span>
+        </label>
+      </div>
+
+      {/* Controls Panel - Right Side */}
+      <div className="absolute top-4 right-4 z-20 bg-gray-800 p-3 rounded-lg border border-gray-600 space-y-3">
+        {/* Track Clustering Toggle */}
+        <label className="flex items-center space-x-2 text-white text-sm">
+          <input
+            type="checkbox"
+            checked={trackClustering}
+            onChange={(e) => setTrackClustering(e.target.checked)}
+            className="w-4 h-4 text-blue-600 bg-gray-700 border-gray-600 rounded focus:ring-blue-500 focus:ring-2"
+          />
+          <span>Track Clustering</span>
         </label>
         
         {/* Link Opacity Controls */}
@@ -673,6 +696,23 @@ const ForceTree: React.FC<ForceTreeProps> = ({
             />
             <span className="text-xs text-gray-400 w-8">{linkOpacities['cluster-artist']}</span>
           </div>
+          
+          {/* Conditionally show Cluster↔Track slider when track clustering is enabled */}
+          {trackClustering && (
+            <div className="flex items-center space-x-2">
+              <span className="text-xs text-gray-300 w-20">Cluster↔Track</span>
+              <input
+                type="range"
+                min="0"
+                max="1"
+                step="0.1"
+                value={linkOpacities['cluster-track']}
+                onChange={(e) => setLinkOpacities(prev => ({...prev, 'cluster-track': parseFloat(e.target.value)}))}
+                className="w-16 h-1 bg-gray-700 rounded-lg appearance-none cursor-pointer"
+              />
+              <span className="text-xs text-gray-400 w-8">{linkOpacities['cluster-track']}</span>
+            </div>
+          )}
         </div>
       </div>
       
