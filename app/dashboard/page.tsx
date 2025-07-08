@@ -16,28 +16,20 @@ interface GraphType {
 
 const graphTypes: GraphType[] = [
   {
-    id: 'top-tracks',
-    title: 'Top Tracks Network',
-    description: 'Visualize your most played tracks and their connections',
-    icon: '🎵',
-    color: 'neon-green',
-    route: '/dashboard/top-tracks',
-  },
-  {
-    id: 'treemap',
-    title: 'Music Treemap',
-    description: 'Explore your music hierarchy: Genres → Artists → Songs',
-    icon: '🗂️',
-    color: 'neon-purple',
-    route: '/dashboard/treemap',
-  },
-  {
     id: 'force-tree',
     title: 'Force-Directed Tree',
     description: 'View your music as a dynamic tree structure',
     icon: '🌲',
     color: 'neon-cyan',
     route: '/dashboard/force-tree',
+  },
+  {
+    id: 'top-tracks',
+    title: 'Force-Directed Graph',
+    description: 'Visualize your most played tracks and their connections',
+    icon: '🎵',
+    color: 'neon-green',
+    route: '/dashboard/top-tracks',
   },
   {
     id: 'genre-map',

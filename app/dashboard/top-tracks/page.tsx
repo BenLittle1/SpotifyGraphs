@@ -132,7 +132,7 @@ export default function TopTracksPage() {
             >
               ← Back to Dashboard
             </Link>
-            <h1 className="text-2xl font-bold text-neon-green">Top Tracks Network</h1>
+            <h1 className="text-2xl font-bold text-neon-green">Force-Directed Graph</h1>
           </div>
           
           <div className="flex items-center gap-4">
