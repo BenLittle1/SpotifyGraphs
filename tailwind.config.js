@@ -14,6 +14,7 @@ module.exports = {
         'neon-yellow': '#FFFF00',
         'neon-orange': '#FF6600',
         'neon-purple': '#BF00FF',
+        'neon-cyan': '#00FFFF',
         'dark-bg': '#000000',
         'dark-surface': '#0A0A0A',
       },

@@ -32,6 +32,14 @@ const graphTypes: GraphType[] = [
     route: '/dashboard/treemap',
   },
   {
+    id: 'force-tree',
+    title: 'Force-Directed Tree',
+    description: 'View your music as a dynamic tree structure',
+    icon: '🌲',
+    color: 'neon-cyan',
+    route: '/dashboard/force-tree',
+  },
+  {
     id: 'genre-map',
     title: 'Genre Map',
     description: 'Explore the genres you listen to and how they connect',
