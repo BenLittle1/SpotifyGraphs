@@ -24,6 +24,14 @@ class SpotifyClient {
           continue;
         }
 
+        if (response.status === 403) {
+          throw new Error('Access token expired or invalid. Please sign out and sign back in.');
+        }
+
+        if (response.status === 401) {
+          throw new Error('Unauthorized. Please sign out and sign back in.');
+        }
+
         return response;
       } catch (error) {
         if (i === retries - 1) throw error;
@@ -41,8 +49,18 @@ class SpotifyClient {
       );
 
       if (!response.ok) {
-        const error: SpotifyError = await response.json();
-        throw new Error(`Spotify API Error: ${error.error.message}`);
+        // Check if response is HTML (Spotify error page) instead of JSON
+        const contentType = response.headers.get('content-type');
+        if (contentType && contentType.includes('text/html')) {
+          throw new Error('Authentication failed. Please sign out and sign back in.');
+        }
+        
+        try {
+          const error: SpotifyError = await response.json();
+          throw new Error(`Spotify API Error: ${error.error.message}`);
+        } catch (jsonError) {
+          throw new Error('Authentication failed. Please sign out and sign back in.');
+        }
       }
 
       const data = await response.json();
@@ -60,8 +78,18 @@ class SpotifyClient {
       );
 
       if (!response.ok) {
-        const error: SpotifyError = await response.json();
-        throw new Error(`Spotify API Error: ${error.error.message}`);
+        // Check if response is HTML (Spotify error page) instead of JSON
+        const contentType = response.headers.get('content-type');
+        if (contentType && contentType.includes('text/html')) {
+          throw new Error('Authentication failed. Please sign out and sign back in.');
+        }
+        
+        try {
+          const error: SpotifyError = await response.json();
+          throw new Error(`Spotify API Error: ${error.error.message}`);
+        } catch (jsonError) {
+          throw new Error('Authentication failed. Please sign out and sign back in.');
+        }
       }
 
       const data = await response.json();
@@ -79,8 +107,18 @@ class SpotifyClient {
       );
 
       if (!response.ok) {
-        const error: SpotifyError = await response.json();
-        throw new Error(`Spotify API Error: ${error.error.message}`);
+        // Check if response is HTML (Spotify error page) instead of JSON
+        const contentType = response.headers.get('content-type');
+        if (contentType && contentType.includes('text/html')) {
+          throw new Error('Authentication failed. Please sign out and sign back in.');
+        }
+        
+        try {
+          const error: SpotifyError = await response.json();
+          throw new Error(`Spotify API Error: ${error.error.message}`);
+        } catch (jsonError) {
+          throw new Error('Authentication failed. Please sign out and sign back in.');
+        }
       }
 
       const data = await response.json();
@@ -98,8 +136,18 @@ class SpotifyClient {
       );
 
       if (!response.ok) {
-        const error: SpotifyError = await response.json();
-        throw new Error(`Spotify API Error: ${error.error.message}`);
+        // Check if response is HTML (Spotify error page) instead of JSON
+        const contentType = response.headers.get('content-type');
+        if (contentType && contentType.includes('text/html')) {
+          throw new Error('Authentication failed. Please sign out and sign back in.');
+        }
+        
+        try {
+          const error: SpotifyError = await response.json();
+          throw new Error(`Spotify API Error: ${error.error.message}`);
+        } catch (jsonError) {
+          throw new Error('Authentication failed. Please sign out and sign back in.');
+        }
       }
 
       return await response.json();
@@ -125,8 +173,18 @@ class SpotifyClient {
         );
 
         if (!response.ok) {
-          const error: SpotifyError = await response.json();
-          throw new Error(`Spotify API Error: ${error.error.message}`);
+          // Check if response is HTML (Spotify error page) instead of JSON
+          const contentType = response.headers.get('content-type');
+          if (contentType && contentType.includes('text/html')) {
+            throw new Error('Authentication failed. Please sign out and sign back in.');
+          }
+          
+          try {
+            const error: SpotifyError = await response.json();
+            throw new Error(`Spotify API Error: ${error.error.message}`);
+          } catch (jsonError) {
+            throw new Error('Authentication failed. Please sign out and sign back in.');
+          }
         }
 
         const data = await response.json();
