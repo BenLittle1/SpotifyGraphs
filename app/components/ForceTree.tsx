@@ -41,6 +41,7 @@ const ForceTree: React.FC<ForceTreeProps> = ({
   const [expandedNodes, setExpandedNodes] = useState<Set<string>>(new Set());
   const [dynamicMode, setDynamicMode] = useState<boolean>(false);
   const [trackClustering, setTrackClustering] = useState<boolean>(false);
+  const [artistClustering, setArtistClustering] = useState<boolean>(true);
   const [linkOpacities, setLinkOpacities] = useState({
     'genre-artist': 0.6,
     'artist-track': 0.8,
@@ -204,10 +205,13 @@ const ForceTree: React.FC<ForceTreeProps> = ({
 
     simulationRef.current = simulation;
 
-    // Filter links based on track clustering setting
+    // Filter links based on clustering settings
     const filteredLinks = data.links.filter(link => {
       if (!trackClustering && link.type === 'cluster-track') {
         return false; // Hide cluster-track links when track clustering is disabled
+      }
+      if (!artistClustering && link.type === 'cluster-artist') {
+        return false; // Hide cluster-artist links when artist clustering is disabled
       }
       return true;
     });
@@ -385,7 +389,7 @@ const ForceTree: React.FC<ForceTreeProps> = ({
     return () => {
       simulation.stop();
     };
-  }, [data, trackClustering]); // Re-render when data or track clustering changes
+  }, [data, trackClustering, artistClustering]); // Re-render when data or clustering settings change
 
   // Update visual properties when sliders change
   useEffect(() => {
@@ -540,7 +544,7 @@ const ForceTree: React.FC<ForceTreeProps> = ({
       simulation.alpha(0.3).restart();
     }
 
-  }, [chargeStrength, collisionRadius, linkDistance, gravity, nodeScale, linkOpacity, data, width, height, expandedNodes, downstreamNodes, upstreamNodes, hoveredNode, dynamicMode, linkOpacities, trackClustering]);
+  }, [chargeStrength, collisionRadius, linkDistance, gravity, nodeScale, linkOpacity, data, width, height, expandedNodes, downstreamNodes, upstreamNodes, hoveredNode, dynamicMode, linkOpacities, trackClustering, artistClustering]);
 
   // Handle cluster expansion effect
   useEffect(() => {
@@ -640,12 +644,42 @@ const ForceTree: React.FC<ForceTreeProps> = ({
         <label className="flex items-center space-x-2 text-white text-sm">
           <input
             type="checkbox"
+            checked={artistClustering}
+            onChange={(e) => setArtistClustering(e.target.checked)}
+            className="w-4 h-4 text-cyan-600 bg-gray-700 border-gray-600 rounded focus:ring-cyan-500 focus:ring-2"
+          />
+          <span>Artist Clustering</span>
+        </label>
+        
+        <label className="flex items-center space-x-2 text-white text-sm">
+          <input
+            type="checkbox"
             checked={trackClustering}
             onChange={(e) => setTrackClustering(e.target.checked)}
             className="w-4 h-4 text-blue-600 bg-gray-700 border-gray-600 rounded focus:ring-blue-500 focus:ring-2"
           />
           <span>Track Clustering</span>
         </label>
+        
+        {/* Artist Clustering Opacity - Only show when artist clustering is enabled */}
+        {artistClustering && (
+          <div className="space-y-2">
+            <div className="text-white text-xs font-semibold">Artist Clustering</div>
+            <div className="flex items-center space-x-2">
+              <span className="text-xs text-gray-300 w-20">Cluster↔Artist</span>
+              <input
+                type="range"
+                min="0"
+                max="1"
+                step="0.1"
+                value={linkOpacities['cluster-artist']}
+                onChange={(e) => setLinkOpacities(prev => ({...prev, 'cluster-artist': parseFloat(e.target.value)}))}
+                className="w-16 h-1 bg-gray-700 rounded-lg appearance-none cursor-pointer"
+              />
+              <span className="text-xs text-gray-400 w-8">{linkOpacities['cluster-artist']}</span>
+            </div>
+          </div>
+        )}
         
         {/* Track Clustering Opacity - Only show when track clustering is enabled */}
         {trackClustering && (
