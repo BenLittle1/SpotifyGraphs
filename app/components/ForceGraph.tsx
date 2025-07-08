@@ -14,12 +14,6 @@ interface ForceGraphProps {
 const ForceGraph: React.FC<ForceGraphProps> = ({ data, width = 1200, height = 800, viewMode = 'network' }) => {
   const svgRef = useRef<SVGSVGElement>(null);
   const [dynamicMode, setDynamicMode] = useState<boolean>(false);
-  const [linkOpacities, setLinkOpacities] = useState({
-    'genre-artist': 0.6,
-    'artist-track': 0.8,
-    'cluster-artist': 0.4,
-    'cluster-track': 0.3,
-  });
 
   useEffect(() => {
     if (!svgRef.current || !data.nodes.length) return;
@@ -273,10 +267,7 @@ const ForceGraph: React.FC<ForceGraphProps> = ({ data, width = 1200, height = 80
       .data(data.links)
       .enter().append('line')
       .attr('stroke', '#ffffff')
-      .attr('stroke-opacity', (d) => {
-        const baseOpacity = linkOpacities[d.type as keyof typeof linkOpacities] || linkOpacity;
-        return baseOpacity;
-      })
+      .attr('stroke-opacity', linkOpacity)
       .attr('stroke-width', (d) => d.strength * (isSmall ? 1.5 : 1));
 
     // Create node groups (filter out invisible clustering nodes)
@@ -538,11 +529,8 @@ const ForceGraph: React.FC<ForceGraphProps> = ({ data, width = 1200, height = 80
         .attr('stroke-opacity', 0.8)
         .attr('fill-opacity', 1);
 
-      link.attr('stroke-opacity', (d) => {
-        const baseOpacity = linkOpacities[d.type as keyof typeof linkOpacities] || linkOpacity;
-        return baseOpacity;
-      })
-      .attr('stroke-width', (d) => d.strength * (isSmall ? 1.5 : 1));
+      link.attr('stroke-opacity', linkOpacity)
+        .attr('stroke-width', (d) => d.strength * (isSmall ? 1.5 : 1));
 
       node.selectAll('text')
         .attr('opacity', (d: any) => {
@@ -644,13 +632,12 @@ const ForceGraph: React.FC<ForceGraphProps> = ({ data, width = 1200, height = 80
       simulation.stop();
       tooltip.remove();
     };
-  }, [data, width, height, viewMode, dynamicMode, linkOpacities]);
+  }, [data, width, height, viewMode, dynamicMode]);
 
   return (
     <div className="relative">
-      {/* Controls Panel */}
-      <div className="absolute top-4 right-4 z-20 bg-gray-800 p-3 rounded-lg border border-gray-600 space-y-3">
-        {/* Dynamic Mode Toggle */}
+      {/* Dynamic Mode Toggle */}
+      <div className="absolute top-4 right-4 z-20 bg-gray-800 p-2 rounded-lg border border-gray-600">
         <label className="flex items-center space-x-2 text-white text-sm">
           <input
             type="checkbox"
@@ -660,67 +647,6 @@ const ForceGraph: React.FC<ForceGraphProps> = ({ data, width = 1200, height = 80
           />
           <span>Dynamic Mode</span>
         </label>
-        
-        {/* Link Opacity Controls */}
-        <div className="space-y-2">
-          <div className="text-white text-xs font-semibold">Link Opacity</div>
-          
-          <div className="flex items-center space-x-2">
-            <span className="text-xs text-gray-300 w-20">Genre↔Artist</span>
-            <input
-              type="range"
-              min="0"
-              max="1"
-              step="0.1"
-              value={linkOpacities['genre-artist']}
-              onChange={(e) => setLinkOpacities(prev => ({...prev, 'genre-artist': parseFloat(e.target.value)}))}
-              className="w-16 h-1 bg-gray-700 rounded-lg appearance-none cursor-pointer"
-            />
-            <span className="text-xs text-gray-400 w-8">{linkOpacities['genre-artist']}</span>
-          </div>
-          
-          <div className="flex items-center space-x-2">
-            <span className="text-xs text-gray-300 w-20">Artist↔Track</span>
-            <input
-              type="range"
-              min="0"
-              max="1"
-              step="0.1"
-              value={linkOpacities['artist-track']}
-              onChange={(e) => setLinkOpacities(prev => ({...prev, 'artist-track': parseFloat(e.target.value)}))}
-              className="w-16 h-1 bg-gray-700 rounded-lg appearance-none cursor-pointer"
-            />
-            <span className="text-xs text-gray-400 w-8">{linkOpacities['artist-track']}</span>
-          </div>
-          
-          <div className="flex items-center space-x-2">
-            <span className="text-xs text-gray-300 w-20">Cluster↔Artist</span>
-            <input
-              type="range"
-              min="0"
-              max="1"
-              step="0.1"
-              value={linkOpacities['cluster-artist']}
-              onChange={(e) => setLinkOpacities(prev => ({...prev, 'cluster-artist': parseFloat(e.target.value)}))}
-              className="w-16 h-1 bg-gray-700 rounded-lg appearance-none cursor-pointer"
-            />
-            <span className="text-xs text-gray-400 w-8">{linkOpacities['cluster-artist']}</span>
-          </div>
-          
-          <div className="flex items-center space-x-2">
-            <span className="text-xs text-gray-300 w-20">Cluster↔Track</span>
-            <input
-              type="range"
-              min="0"
-              max="1"
-              step="0.1"
-              value={linkOpacities['cluster-track']}
-              onChange={(e) => setLinkOpacities(prev => ({...prev, 'cluster-track': parseFloat(e.target.value)}))}
-              className="w-16 h-1 bg-gray-700 rounded-lg appearance-none cursor-pointer"
-            />
-            <span className="text-xs text-gray-400 w-8">{linkOpacities['cluster-track']}</span>
-          </div>
-        </div>
       </div>
       
       <svg
