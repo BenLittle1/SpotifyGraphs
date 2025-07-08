@@ -18,6 +18,7 @@ export interface ForceTreeLink {
   source: string;
   target: string;
   value: number;
+  type?: 'genre-artist' | 'artist-track' | 'cluster-artist';
 }
 
 export interface ForceTreeData {
@@ -194,7 +195,8 @@ export function processSpotifyDataToForceTree(
         links.push({
           source: genreId,
           target: artistNodeId,
-          value: tracksInGenre.length
+          value: tracksInGenre.length,
+          type: 'genre-artist'
         });
 
         // Create link from clustering node to artist for natural grouping
@@ -203,7 +205,8 @@ export function processSpotifyDataToForceTree(
           links.push({
             source: clusterId,
             target: artistNodeId,
-            value: tracksInGenre.length * 1.5 // Stronger clustering force
+            value: tracksInGenre.length * 1.5, // Stronger clustering force
+            type: 'cluster-artist'
           });
         }
       }
@@ -258,7 +261,8 @@ export function processSpotifyDataToForceTree(
       links.push({
         source: artistNode.id,
         target: trackNodeId,
-        value: track.popularity || 50
+        value: track.popularity || 50,
+        type: 'artist-track'
       });
     });
 

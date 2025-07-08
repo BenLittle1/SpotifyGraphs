@@ -65,6 +65,7 @@ export function processSpotifyDataToGraph(
           source: artistNode.id,
           target: genreNode.id,
           strength: 0.5,
+          type: 'genre-artist',
         });
       }
 
@@ -75,6 +76,7 @@ export function processSpotifyDataToGraph(
           source: artistNode.id,
           target: clusterNode.id,
           strength: 0.8, // Stronger clustering force
+          type: 'cluster-artist',
         });
       }
     });
@@ -103,6 +105,7 @@ export function processSpotifyDataToGraph(
           source: trackNode.id,
           target: artistNodeId,
           strength: 0.8,
+          type: 'artist-track',
         });
       }
     });

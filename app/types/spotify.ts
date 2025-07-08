@@ -52,6 +52,7 @@ export interface GraphLink {
   source: string;
   target: string;
   strength: number;
+  type?: 'genre-artist' | 'artist-track' | 'cluster-artist';
 }
 
 export interface GraphData {
