@@ -12,9 +12,11 @@ interface ForceTreeProps {
   width: number;
   height: number;
   chargeStrength?: number;
+  collisionRadius?: number;
+  linkDistance?: number;
 }
 
-const ForceTree: React.FC<ForceTreeProps> = ({ data, width, height, chargeStrength = 1.0 }) => {
+const ForceTree: React.FC<ForceTreeProps> = ({ data, width, height, chargeStrength = 1.0, collisionRadius = 1.0, linkDistance = 1.0 }) => {
   const svgRef = useRef<SVGSVGElement>(null);
   const [hoveredNode, setHoveredNode] = useState<ForceTreeNode | null>(null);
   const [selectedNode, setSelectedNode] = useState<ForceTreeNode | null>(null);
@@ -82,9 +84,9 @@ const ForceTree: React.FC<ForceTreeProps> = ({ data, width, height, chargeStreng
         .distance(d => {
           const sourceNode = data.nodes.find(n => n.id === (d.source as any).id || d.source);
           const targetNode = data.nodes.find(n => n.id === (d.target as any).id || d.target);
-          if (sourceNode?.type === 'genre' && targetNode?.type === 'artist') return 150;
-          if (sourceNode?.type === 'artist' && targetNode?.type === 'track') return 80;
-          return 100;
+          if (sourceNode?.type === 'genre' && targetNode?.type === 'artist') return 150 * linkDistance;
+          if (sourceNode?.type === 'artist' && targetNode?.type === 'track') return 80 * linkDistance;
+          return 100 * linkDistance;
         })
         .strength(0.5))
       .force('charge', d3.forceManyBody<ForceTreeNode>()
@@ -104,8 +106,10 @@ const ForceTree: React.FC<ForceTreeProps> = ({ data, width, height, chargeStreng
       .force('center', d3.forceCenter(width / 2, height / 2))
       .force('collision', d3.forceCollide<ForceTreeNode>()
         .radius(d => {
-          if (d.type === 'genre') return genreSizeScale(d.value) + 10;
-          return sizeScale(d.popularity || 50) + 5;
+          const baseRadius = d.type === 'genre' ? 
+            genreSizeScale(d.value) + 10 : 
+            sizeScale(d.popularity || 50) + 5;
+          return baseRadius * collisionRadius;
         }))
       // Add radial force to create tree-like structure
       .force('radial', d3.forceRadial<ForceTreeNode>(
@@ -316,7 +320,7 @@ const ForceTree: React.FC<ForceTreeProps> = ({ data, width, height, chargeStreng
     return () => {
       simulation.stop();
     };
-  }, [data, width, height, chargeStrength]);
+  }, [data, width, height, chargeStrength, collisionRadius, linkDistance]);
 
   return (
     <div className="relative">

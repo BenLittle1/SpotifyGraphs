@@ -18,6 +18,8 @@ export default function ForceTreePage() {
   const [nodeCount, setNodeCount] = useState(400);
   const [showNodeSelector, setShowNodeSelector] = useState(true);
   const [chargeStrength, setChargeStrength] = useState(1.0);
+  const [collisionRadius, setCollisionRadius] = useState(1.0);
+  const [linkDistance, setLinkDistance] = useState(1.0);
 
   useEffect(() => {
     if (status === 'loading') return;
@@ -230,6 +232,46 @@ export default function ForceTreePage() {
               </div>
             </div>
 
+            {/* Collision Radius Slider */}
+            <div>
+              <label className="block text-sm font-medium text-gray-400 mb-2">
+                Collision Radius: {collisionRadius.toFixed(2)}
+              </label>
+              <input
+                type="range"
+                min="0.2"
+                max="2.0"
+                step="0.1"
+                value={collisionRadius}
+                onChange={(e) => setCollisionRadius(Number(e.target.value))}
+                className="w-full h-2 bg-gray-700 rounded-lg appearance-none cursor-pointer slider"
+              />
+              <div className="flex justify-between text-xs text-gray-500 mt-1">
+                <span>Compact</span>
+                <span>Spacious</span>
+              </div>
+            </div>
+
+            {/* Link Distance Slider */}
+            <div>
+              <label className="block text-sm font-medium text-gray-400 mb-2">
+                Link Distance: {linkDistance.toFixed(2)}
+              </label>
+              <input
+                type="range"
+                min="0.5"
+                max="2.0"
+                step="0.1"
+                value={linkDistance}
+                onChange={(e) => setLinkDistance(Number(e.target.value))}
+                className="w-full h-2 bg-gray-700 rounded-lg appearance-none cursor-pointer slider"
+              />
+              <div className="flex justify-between text-xs text-gray-500 mt-1">
+                <span>Close</span>
+                <span>Far</span>
+              </div>
+            </div>
+
             {/* Update Button */}
             <button
               onClick={fetchData}
@@ -369,6 +411,8 @@ export default function ForceTreePage() {
               width={window.innerWidth - 320}
               height={window.innerHeight - 73}
               chargeStrength={chargeStrength}
+              collisionRadius={collisionRadius}
+              linkDistance={linkDistance}
             />
           )}
         </div>
