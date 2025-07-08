@@ -399,7 +399,7 @@ const ForceGraph: React.FC<ForceGraphProps> = ({ data, width = 1200, height = 80
     };
 
     // Add hover interaction with improved event handling
-    let hoverTimeout: number | null = null;
+    let hoverTimeout: ReturnType<typeof setTimeout> | null = null;
     let currentHoveredNode: string | null = null;
 
     const applyHighlighting = (d: GraphNode) => {

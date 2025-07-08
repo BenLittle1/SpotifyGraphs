@@ -241,7 +241,7 @@ const ForceTree: React.FC<ForceTreeProps> = ({
       .style('font-weight', '500');
 
     // Add hover and click interactions with debouncing
-    let hoverTimeout: number | null = null;
+    let hoverTimeout: ReturnType<typeof setTimeout> | null = null;
     let currentHoveredId: string | null = null;
 
     const applyHoverEffect = (d: ForceTreeNode) => {
