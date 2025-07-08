@@ -113,7 +113,7 @@ const ForceTree: React.FC<ForceTreeProps> = ({
     const nodeColors: { [key: string]: string } = {
       genre: '#ff00ff', // Magenta/Pink for genres
       artist: '#A855F7', // Dark neon purple for artists
-      track: '#3B82F6'  // Dark neon blue for tracks
+      track: '#1E40AF'  // Darker vibrant blue for tracks
     };
 
     // Size scales
@@ -390,7 +390,7 @@ const ForceTree: React.FC<ForceTreeProps> = ({
             const nodeColors: { [key: string]: string } = {
               genre: '#ff00ff',
               artist: '#A855F7',
-              track: '#3B82F6'
+              track: '#1E40AF'
             };
             return sourceNode ? nodeColors[sourceNode.type as string] || '#444' : '#444';
           }
@@ -436,7 +436,7 @@ const ForceTree: React.FC<ForceTreeProps> = ({
         const nodeColors: { [key: string]: string } = {
           genre: '#ff00ff',
           artist: '#A855F7',
-          track: '#3B82F6'
+          track: '#1E40AF'
         };
         return nodeColors[d.type as string] || '#444';
       });
@@ -603,7 +603,7 @@ const ForceTree: React.FC<ForceTreeProps> = ({
             transform: 'translateX(-50%)',
             border: `1px solid ${
               hoveredNode.type === 'genre' ? '#ff00ff' :
-              hoveredNode.type === 'artist' ? '#A855F7' : '#3B82F6'
+              hoveredNode.type === 'artist' ? '#A855F7' : '#1E40AF'
             }`
           }}
         >
@@ -632,7 +632,7 @@ const ForceTree: React.FC<ForceTreeProps> = ({
             <span>Artists</span>
           </div>
           <div className="flex items-center gap-2">
-            <div className="w-3 h-3 rounded-full" style={{ backgroundColor: '#3B82F6' }}></div>
+            <div className="w-3 h-3 rounded-full" style={{ backgroundColor: '#1E40AF' }}></div>
             <span>Tracks</span>
           </div>
           <div className="mt-2 pt-2 border-t border-gray-700 text-xs text-gray-400">

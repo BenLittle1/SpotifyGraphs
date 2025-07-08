@@ -24,7 +24,7 @@ const ForceGraph: React.FC<ForceGraphProps> = ({ data, width = 1200, height = 80
     const colorScale = {
       genre: '#FF10F0', // neon-pink
       artist: '#A855F7', // dark neon purple
-      track: '#3B82F6', // dark neon blue
+      track: '#1E40AF', // darker vibrant blue
     };
 
     // Create container for zoom
