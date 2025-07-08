@@ -668,55 +668,7 @@ const ForceTree: React.FC<ForceTreeProps> = ({
         )}
       </div>
 
-      {/* Controls Panel - Right Side */}
-      <div className="absolute top-4 right-4 z-20 bg-gray-800 p-3 rounded-lg border border-gray-600 space-y-3">
-        {/* Link Opacity Controls */}
-        <div className="space-y-2">
-          <div className="text-white text-xs font-semibold">Link Opacity</div>
-          
-          <div className="flex items-center space-x-2">
-            <span className="text-xs text-gray-300 w-20">Genre↔Artist</span>
-            <input
-              type="range"
-              min="0"
-              max="1"
-              step="0.1"
-              value={linkOpacities['genre-artist']}
-              onChange={(e) => setLinkOpacities(prev => ({...prev, 'genre-artist': parseFloat(e.target.value)}))}
-              className="w-16 h-1 bg-gray-700 rounded-lg appearance-none cursor-pointer"
-            />
-            <span className="text-xs text-gray-400 w-8">{linkOpacities['genre-artist']}</span>
-          </div>
-          
-          <div className="flex items-center space-x-2">
-            <span className="text-xs text-gray-300 w-20">Artist↔Track</span>
-            <input
-              type="range"
-              min="0"
-              max="1"
-              step="0.1"
-              value={linkOpacities['artist-track']}
-              onChange={(e) => setLinkOpacities(prev => ({...prev, 'artist-track': parseFloat(e.target.value)}))}
-              className="w-16 h-1 bg-gray-700 rounded-lg appearance-none cursor-pointer"
-            />
-            <span className="text-xs text-gray-400 w-8">{linkOpacities['artist-track']}</span>
-          </div>
-          
-          <div className="flex items-center space-x-2">
-            <span className="text-xs text-gray-300 w-20">Cluster↔Artist</span>
-            <input
-              type="range"
-              min="0"
-              max="1"
-              step="0.1"
-              value={linkOpacities['cluster-artist']}
-              onChange={(e) => setLinkOpacities(prev => ({...prev, 'cluster-artist': parseFloat(e.target.value)}))}
-              className="w-16 h-1 bg-gray-700 rounded-lg appearance-none cursor-pointer"
-            />
-            <span className="text-xs text-gray-400 w-8">{linkOpacities['cluster-artist']}</span>
-          </div>
-        </div>
-      </div>
+
       
       <svg
         ref={svgRef}
