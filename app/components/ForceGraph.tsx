@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useEffect, useRef } from 'react';
+import React, { useEffect, useRef, useState } from 'react';
 import * as d3 from 'd3';
 import { GraphData, GraphNode, GraphLink } from '@/app/types/spotify';
 
@@ -13,6 +13,7 @@ interface ForceGraphProps {
 
 const ForceGraph: React.FC<ForceGraphProps> = ({ data, width = 1200, height = 800, viewMode = 'network' }) => {
   const svgRef = useRef<SVGSVGElement>(null);
+  const [dynamicMode, setDynamicMode] = useState<boolean>(false);
 
   useEffect(() => {
     if (!svgRef.current || !data.nodes.length) return;
@@ -412,6 +413,26 @@ const ForceGraph: React.FC<ForceGraphProps> = ({ data, width = 1200, height = 80
       
       // Highlight the hovered node and upstream nodes
       node.selectAll('circle')
+        .attr('r', (nodeData: any) => {
+          let baseRadius;
+          if (isHierarchical) {
+            if (nodeData.group === 'genre') {
+              baseRadius = 30 + (nodeData.radius || 20) * 0.5;
+            } else if (nodeData.group === 'artist') {
+              baseRadius = Math.max(15, Math.min(30, (nodeData.popularity || 50) / 3.3));
+            } else {
+              baseRadius = Math.max(8, Math.min(15, (nodeData.popularity || 50) / 6.7));
+            }
+          } else {
+            baseRadius = nodeData.radius || 10;
+          }
+          
+          // Apply dynamic scaling if dynamic mode is enabled
+          if (dynamicMode && (nodeData.id === d.id || upstreamNodes.has(nodeData.id))) {
+            return baseRadius * 1.2; // Scale up highlighted nodes
+          }
+          return baseRadius;
+        })
         .attr('stroke-width', (nodeData: any) => {
           if (nodeData.id === d.id) return 4; // Hovered node gets thicker border
           if (upstreamNodes.has(nodeData.id)) return 3; // Upstream nodes get medium border
@@ -467,6 +488,11 @@ const ForceGraph: React.FC<ForceGraphProps> = ({ data, width = 1200, height = 80
           ${upstreamInfo ? `Path: ${upstreamInfo} → <strong>${d.name}</strong>` : ''}
         </div>
       `);
+      
+      // Restart simulation in dynamic mode to create movement
+      if (dynamicMode) {
+        simulation.alpha(0.3).restart();
+      }
     };
 
     const resetHighlighting = () => {
@@ -474,6 +500,19 @@ const ForceGraph: React.FC<ForceGraphProps> = ({ data, width = 1200, height = 80
       
       // Reset all visual enhancements
       node.selectAll('circle')
+        .attr('r', (d: any) => {
+          // Reset to original radius
+          if (isHierarchical) {
+            if (d.group === 'genre') {
+              return 30 + (d.radius || 20) * 0.5;
+            } else if (d.group === 'artist') {
+              return Math.max(15, Math.min(30, (d.popularity || 50) / 3.3));
+            } else {
+              return Math.max(8, Math.min(15, (d.popularity || 50) / 6.7));
+            }
+          }
+          return d.radius || 10;
+        })
         .attr('stroke-width', 2)
         .attr('stroke-opacity', 0.8)
         .attr('fill-opacity', 1);
@@ -581,16 +620,31 @@ const ForceGraph: React.FC<ForceGraphProps> = ({ data, width = 1200, height = 80
       simulation.stop();
       tooltip.remove();
     };
-  }, [data, width, height, viewMode]);
+  }, [data, width, height, viewMode, dynamicMode]);
 
   return (
-    <svg
-      ref={svgRef}
-      width={width}
-      height={height}
-      className="graph-container"
-      style={{ cursor: 'grab' }}
-    />
+    <div className="relative">
+      {/* Dynamic Mode Toggle */}
+      <div className="absolute top-4 right-4 z-20 bg-gray-800 p-2 rounded-lg border border-gray-600">
+        <label className="flex items-center space-x-2 text-white text-sm">
+          <input
+            type="checkbox"
+            checked={dynamicMode}
+            onChange={(e) => setDynamicMode(e.target.checked)}
+            className="w-4 h-4 text-purple-600 bg-gray-700 border-gray-600 rounded focus:ring-purple-500 focus:ring-2"
+          />
+          <span>Dynamic Mode</span>
+        </label>
+      </div>
+      
+      <svg
+        ref={svgRef}
+        width={width}
+        height={height}
+        className="graph-container"
+        style={{ cursor: 'grab' }}
+      />
+    </div>
   );
 };
 

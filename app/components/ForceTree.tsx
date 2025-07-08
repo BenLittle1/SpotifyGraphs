@@ -39,6 +39,7 @@ const ForceTree: React.FC<ForceTreeProps> = ({
   const [downstreamNodes, setDownstreamNodes] = useState<Set<string>>(new Set());
   const [upstreamNodes, setUpstreamNodes] = useState<Set<string>>(new Set());
   const [expandedNodes, setExpandedNodes] = useState<Set<string>>(new Set());
+  const [dynamicMode, setDynamicMode] = useState<boolean>(false);
 
   // Initialize the visualization only once
   useEffect(() => {
@@ -413,7 +414,12 @@ const ForceTree: React.FC<ForceTreeProps> = ({
           genreSizeScale(d.value) : 
           sizeScale(d.popularity || 50);
         
-        // Keep consistent sizing during hover to prevent node movement
+        // Apply dynamic hover sizing if dynamic mode is enabled
+        if (dynamicMode && hoveredNode && (downstreamNodes.size > 0 || upstreamNodes.size > 0)) {
+          const isRelevant = downstreamNodes.has(d.id) || upstreamNodes.has(d.id);
+          return isRelevant ? baseRadius * nodeScale * 1.2 : baseRadius * nodeScale;
+        }
+        // Keep consistent sizing during hover to prevent node movement (default mode)
         return baseRadius * nodeScale;
       })
       .attr('fill-opacity', (d: any) => {
@@ -494,9 +500,12 @@ const ForceTree: React.FC<ForceTreeProps> = ({
       });
     }
 
-    // Don't restart simulation during hover to prevent node movement
+    // Restart simulation during hover only if dynamic mode is enabled
+    if (dynamicMode && hoveredNode && (downstreamNodes.size > 0 || upstreamNodes.size > 0)) {
+      simulation.alpha(0.3).restart();
+    }
 
-  }, [chargeStrength, collisionRadius, linkDistance, gravity, nodeScale, linkOpacity, data, width, height, expandedNodes, downstreamNodes, upstreamNodes, hoveredNode]);
+  }, [chargeStrength, collisionRadius, linkDistance, gravity, nodeScale, linkOpacity, data, width, height, expandedNodes, downstreamNodes, upstreamNodes, hoveredNode, dynamicMode]);
 
   // Handle cluster expansion effect
   useEffect(() => {
@@ -581,6 +590,19 @@ const ForceTree: React.FC<ForceTreeProps> = ({
 
   return (
     <div className="relative">
+      {/* Dynamic Mode Toggle */}
+      <div className="absolute top-4 right-4 z-20 bg-gray-800 p-2 rounded-lg border border-gray-600">
+        <label className="flex items-center space-x-2 text-white text-sm">
+          <input
+            type="checkbox"
+            checked={dynamicMode}
+            onChange={(e) => setDynamicMode(e.target.checked)}
+            className="w-4 h-4 text-purple-600 bg-gray-700 border-gray-600 rounded focus:ring-purple-500 focus:ring-2"
+          />
+          <span>Dynamic Mode</span>
+        </label>
+      </div>
+      
       <svg
         ref={svgRef}
         width={width}
