@@ -66,7 +66,7 @@ export default function PlayboiCartiPage() {
     return (
       <div className="min-h-screen bg-black flex items-center justify-center">
         <div className="text-center">
-          <div className="animate-spin rounded-full h-16 w-16 border-t-4 border-b-4 border-red-500 mx-auto mb-4"></div>
+          <div className="animate-spin rounded-full h-16 w-16 border-t-4 border-b-4 border-white mx-auto mb-4"></div>
           <p className="text-white">Loading...</p>
         </div>
       </div>
@@ -76,20 +76,20 @@ export default function PlayboiCartiPage() {
   return (
     <div className="min-h-screen bg-black text-white">
       {/* Header */}
-      <div className="border-b border-red-900/50">
+      <div className="border-b border-gray-800">
         <div className="container mx-auto px-4 py-4">
           <div className="flex items-center justify-between">
             <div className="flex items-center space-x-4">
               <Link 
                 href="/dashboard"
-                className="text-red-200 hover:text-white transition-colors duration-200 flex items-center space-x-1"
+                className="text-gray-300 hover:text-white transition-colors duration-200 flex items-center space-x-1"
               >
                 <span>←</span>
                 <span>Back to Dashboard</span>
               </Link>
               <h1 className="text-2xl font-bold">
-                <span className="text-red-500">Playboi Carti</span> 
-                <span className="text-white ml-2">Discography</span>
+                <span className="text-white">Playboi Carti</span> 
+                <span className="text-gray-400 ml-2">Discography</span>
               </h1>
             </div>
           </div>
@@ -100,12 +100,12 @@ export default function PlayboiCartiPage() {
       <div className="flex h-[calc(100vh-73px)] relative">
         {/* Controls Menu */}
         <div className={`absolute top-4 right-4 z-20 transition-all duration-300 ${showControls ? 'translate-x-0' : 'translate-x-full'}`}>
-          <div className="bg-gray-900/95 backdrop-blur-sm border border-red-500/30 rounded-lg shadow-2xl p-6 w-80">
+          <div className="bg-gray-900/95 backdrop-blur-sm border border-gray-700 rounded-lg shadow-2xl p-6 w-80">
             <div className="flex items-center justify-between mb-4">
               <h2 className="text-lg font-semibold text-white">Visualization Controls</h2>
               <button
                 onClick={() => setShowControls(false)}
-                className="text-red-300 hover:text-white transition-colors duration-200"
+                className="text-gray-400 hover:text-white transition-colors duration-200"
               >
                 <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
@@ -118,28 +118,28 @@ export default function PlayboiCartiPage() {
               <button
                 onClick={fetchDiscography}
                 disabled={loading}
-                className="w-full px-4 py-3 bg-gradient-to-r from-red-600 to-red-500 text-white rounded-lg hover:from-red-700 hover:to-red-600 transition-all duration-200 disabled:opacity-50 disabled:cursor-not-allowed font-medium shadow-lg"
+                className="w-full px-4 py-3 bg-gradient-to-r from-gray-800 to-gray-700 text-white rounded-lg hover:from-gray-700 hover:to-gray-600 transition-all duration-200 disabled:opacity-50 disabled:cursor-not-allowed font-medium shadow-lg border border-gray-600"
               >
                 {loading ? 'Loading...' : 'Refresh Data'}
               </button>
 
               {/* Stats */}
               {graphData && !loading && (
-                <div className="pt-4 border-t border-red-500/20">
-                  <h3 className="text-sm font-semibold text-red-300 mb-3">Statistics</h3>
+                <div className="pt-4 border-t border-gray-700">
+                  <h3 className="text-sm font-semibold text-gray-300 mb-3">Statistics</h3>
                   <div className="space-y-3 text-sm">
                     <div className="flex justify-between items-center">
-                      <span className="text-red-200">Total Nodes:</span>
+                      <span className="text-gray-400">Total Nodes:</span>
                       <span className="text-white font-medium">{graphData.nodes.length}</span>
                     </div>
                     <div className="flex justify-between items-center">
-                      <span className="text-red-200">Albums:</span>
-                      <span className="text-red-400 font-medium">
+                      <span className="text-gray-400">Albums:</span>
+                      <span className="text-gray-200 font-medium">
                         {graphData.nodes.filter(n => n.group === 'album').length}
                       </span>
                     </div>
                     <div className="flex justify-between items-center">
-                      <span className="text-red-200">Tracks:</span>
+                      <span className="text-gray-400">Tracks:</span>
                       <span className="text-white font-medium">
                         {graphData.nodes.filter(n => n.group === 'track').length}
                       </span>
@@ -154,9 +154,9 @@ export default function PlayboiCartiPage() {
         {/* Toggle Button */}
         <button
           onClick={() => setShowControls(!showControls)}
-          className={`absolute top-4 right-4 z-10 p-3 bg-gray-900/95 backdrop-blur-sm border border-red-500/30 rounded-lg shadow-lg hover:bg-gray-800/95 hover:border-red-400/50 transition-all duration-300 ${showControls ? 'opacity-0 pointer-events-none' : 'opacity-100'}`}
+          className={`absolute top-4 right-4 z-10 p-3 bg-gray-900/95 backdrop-blur-sm border border-gray-700 rounded-lg shadow-lg hover:bg-gray-800/95 hover:border-gray-600 transition-all duration-300 ${showControls ? 'opacity-0 pointer-events-none' : 'opacity-100'}`}
         >
-          <svg className="w-6 h-6 text-red-300" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <svg className="w-6 h-6 text-gray-300" fill="none" stroke="currentColor" viewBox="0 0 24 24">
             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 6V4m0 2a2 2 0 100 4m0-4a2 2 0 110 4m-6 8a2 2 0 100-4m0 4a2 2 0 110-4m0 4v2m0-6V4m6 6v10m6-2a2 2 0 100-4m0 4a2 2 0 110-4m0 4v2m0-6V4" />
           </svg>
         </button>
@@ -166,19 +166,19 @@ export default function PlayboiCartiPage() {
           {loading && (
             <div className="absolute inset-0 flex items-center justify-center bg-black/80 backdrop-blur-sm">
               <div className="text-center">
-                <div className="animate-spin rounded-full h-16 w-16 border-t-4 border-b-4 border-red-500 mx-auto mb-4"></div>
-                <p className="text-red-200 text-lg">Loading Playboi Carti's discography...</p>
+                <div className="animate-spin rounded-full h-16 w-16 border-t-4 border-b-4 border-white mx-auto mb-4"></div>
+                <p className="text-gray-300 text-lg">Loading Playboi Carti's discography...</p>
               </div>
             </div>
           )}
 
           {error && (
             <div className="absolute inset-0 flex items-center justify-center bg-black/80 backdrop-blur-sm">
-              <div className="text-center bg-gray-900/95 border border-red-500/30 rounded-lg p-8 max-w-md">
-                <div className="text-red-400 mb-6 text-lg font-medium">Error: {error}</div>
+              <div className="text-center bg-gray-900/95 border border-gray-700 rounded-lg p-8 max-w-md">
+                <div className="text-gray-200 mb-6 text-lg font-medium">Error: {error}</div>
                 <button
                   onClick={fetchDiscography}
-                  className="px-6 py-3 bg-gradient-to-r from-red-600 to-red-500 text-white rounded-lg hover:from-red-700 hover:to-red-600 transition-all duration-200 font-medium shadow-lg"
+                  className="px-6 py-3 bg-gradient-to-r from-gray-800 to-gray-700 text-white rounded-lg hover:from-gray-700 hover:to-gray-600 transition-all duration-200 font-medium shadow-lg border border-gray-600"
                 >
                   Try Again
                 </button>
@@ -192,13 +192,13 @@ export default function PlayboiCartiPage() {
               width={window.innerWidth}
               height={window.innerHeight - 73}
               colorScheme={{
-                genre: '#DC2626', // red-600 - for genre nodes
-                artist: '#FFFFFF', // white - for artist nodes (Playboi Carti)
-                album: '#FEF2F2', // red-50 - very light red for albums
-                track: '#FECACA', // red-200 - light red for tracks
-                cluster: '#FFFFFF', // white for clustering nodes
-                'genre-cluster': '#FFFFFF', // white for genre clustering
-                'album-cluster': '#FFFFFF', // white for album clustering
+                genre: { fill: '#FFFFFF', stroke: '#FFFFFF', strokeWidth: 3 }, // solid white
+                artist: { fill: '#000000', stroke: '#FFFFFF', strokeWidth: 3 }, // white outline, black interior
+                album: { fill: '#FFFFFF', stroke: '#FFFFFF', strokeWidth: 2 }, // solid white
+                track: { fill: '#000000', stroke: '#FFFFFF', strokeWidth: 2 }, // white outline, black interior
+                cluster: { fill: '#FFFFFF', stroke: '#FFFFFF', strokeWidth: 1 }, // solid white
+                'genre-cluster': { fill: '#FFFFFF', stroke: '#FFFFFF', strokeWidth: 1 }, // solid white
+                'album-cluster': { fill: '#FFFFFF', stroke: '#FFFFFF', strokeWidth: 1 }, // solid white
               }}
             />
           )}

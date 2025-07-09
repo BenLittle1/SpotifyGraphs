@@ -10,13 +10,13 @@ interface ForceGraphProps {
   height?: number;
   viewMode?: 'network' | 'hierarchical';
   colorScheme?: {
-    genre?: string;
-    artist?: string;
-    album?: string;
-    track?: string;
-    cluster?: string;
-    'genre-cluster'?: string;
-    'album-cluster'?: string;
+    genre?: string | { fill: string; stroke: string; strokeWidth?: number };
+    artist?: string | { fill: string; stroke: string; strokeWidth?: number };
+    album?: string | { fill: string; stroke: string; strokeWidth?: number };
+    track?: string | { fill: string; stroke: string; strokeWidth?: number };
+    cluster?: string | { fill: string; stroke: string; strokeWidth?: number };
+    'genre-cluster'?: string | { fill: string; stroke: string; strokeWidth?: number };
+    'album-cluster'?: string | { fill: string; stroke: string; strokeWidth?: number };
   };
 }
 
@@ -61,14 +61,29 @@ const ForceGraph: React.FC<ForceGraphProps> = ({ data, width = 1200, height = 80
       'album-cluster': '#FFFFFF', // invisible album clustering nodes
     };
 
+    // Helper function to process color scheme
+    const processColor = (schemeColor: string | { fill: string; stroke: string; strokeWidth?: number } | undefined, defaultColor: string) => {
+      if (!schemeColor) {
+        return { fill: defaultColor, stroke: defaultColor, strokeWidth: 2 };
+      }
+      if (typeof schemeColor === 'string') {
+        return { fill: schemeColor, stroke: schemeColor, strokeWidth: 2 };
+      }
+      return { 
+        fill: schemeColor.fill, 
+        stroke: schemeColor.stroke, 
+        strokeWidth: schemeColor.strokeWidth || 2 
+      };
+    };
+
     const colorScale = {
-      genre: colorScheme?.genre || defaultColors.genre,
-      artist: colorScheme?.artist || defaultColors.artist,
-      album: colorScheme?.album || defaultColors.album,
-      track: colorScheme?.track || defaultColors.track,
-      cluster: colorScheme?.cluster || defaultColors.cluster,
-      'genre-cluster': colorScheme?.['genre-cluster'] || defaultColors['genre-cluster'],
-      'album-cluster': colorScheme?.['album-cluster'] || defaultColors['album-cluster'],
+      genre: processColor(colorScheme?.genre, defaultColors.genre),
+      artist: processColor(colorScheme?.artist, defaultColors.artist),
+      album: processColor(colorScheme?.album, defaultColors.album),
+      track: processColor(colorScheme?.track, defaultColors.track),
+      cluster: processColor(colorScheme?.cluster, defaultColors.cluster),
+      'genre-cluster': processColor(colorScheme?.['genre-cluster'], defaultColors['genre-cluster']),
+      'album-cluster': processColor(colorScheme?.['album-cluster'], defaultColors['album-cluster']),
     };
 
     // Create container for zoom
@@ -707,7 +722,7 @@ const ForceGraph: React.FC<ForceGraphProps> = ({ data, width = 1200, height = 80
         .on('drag', dragged)
         .on('end', dragended));
 
-    // Add circles to nodes with standard styling
+    // Add circles to nodes with custom styling support
     node.append('circle')
       .attr('r', (d) => {
         if (isHierarchical) {
@@ -728,9 +743,9 @@ const ForceGraph: React.FC<ForceGraphProps> = ({ data, width = 1200, height = 80
         }
         return d.radius || 10;
       })
-      .attr('fill', (d) => colorScale[d.group])
-      .attr('stroke', (d) => colorScale[d.group])
-      .attr('stroke-width', 2)
+      .attr('fill', (d) => colorScale[d.group].fill)
+      .attr('stroke', (d) => colorScale[d.group].stroke)
+      .attr('stroke-width', (d) => colorScale[d.group].strokeWidth)
       .attr('stroke-opacity', 0.8)
       .style('filter', 'url(#glow)');
 
@@ -1071,7 +1086,7 @@ const ForceGraph: React.FC<ForceGraphProps> = ({ data, width = 1200, height = 80
         tooltip
           .style('left', (event.pageX + 10) + 'px')
           .style('top', (event.pageY - 28) + 'px')
-          .style('border-color', colorScale[d.group]);
+          .style('border-color', colorScale[d.group].stroke);
       })
       .on('mousemove', (event, d) => {
         // Update tooltip position on mouse move
