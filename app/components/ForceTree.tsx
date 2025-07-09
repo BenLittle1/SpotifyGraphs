@@ -124,17 +124,9 @@ const ForceTree: React.FC<ForceTreeProps> = ({
         // For genres: show all descendants recursively (genre → artists → albums → tracks)
         findAllDescendants(nodeId);
       } else if (hoveredNode?.type === 'album') {
-        // For albums: show all ancestors up to genre (album → artist → genre)
+        // For albums: show all ancestors up to genre AND all descendants down to tracks
         findAllAncestors(nodeId);
-        // Also show direct children (tracks in this album)
-        hierarchicalLinks.forEach(link => {
-          const sourceId = typeof link.source === 'string' ? link.source : (link.source as any).id;
-          const targetId = typeof link.target === 'string' ? link.target : (link.target as any).id;
-          
-          if (sourceId === nodeId) {
-            children.add(targetId);
-          }
-        });
+        findAllDescendants(nodeId);
       } else if (hoveredNode?.type === 'track') {
         // For tracks: show all ancestors up to genre (track → album → artist → genre OR track → artist → genre)
         findAllAncestors(nodeId);
