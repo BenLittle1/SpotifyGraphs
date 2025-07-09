@@ -724,10 +724,10 @@ const ForceTree: React.FC<ForceTreeProps> = ({
             // Check if this link connects nodes in the vertical hierarchy
             const isVerticalLink = allVerticalNodes.has(sourceId) && allVerticalNodes.has(targetId);
             
-            return isVerticalLink ? 0.8 : 0.05;
+            return isVerticalLink ? 0.8 : 0.02; // Reduced from 0.05 to 0.02 for even dimmer non-highlighted links
           }
           
-          return 0.05; // Dim clustering links during hover
+          return 0.02; // Reduced from 0.05 to 0.02 - dim clustering links during hover even more
         }
         return linkOpacity;
       })
@@ -785,7 +785,7 @@ const ForceTree: React.FC<ForceTreeProps> = ({
         if (hoveredNode && (downstreamNodes.size > 0 || upstreamNodes.size > 0)) {
           const allVerticalNodes = new Set([hoveredNode.id, ...Array.from(downstreamNodes), ...Array.from(upstreamNodes)]);
           const isRelevant = allVerticalNodes.has(d.id);
-          return isRelevant ? 1 : 0.2;
+          return isRelevant ? 1 : 0.08; // Reduced from 0.2 to 0.08 for much dimmer non-highlighted nodes
         }
         return 0.8;
       })
@@ -811,7 +811,7 @@ const ForceTree: React.FC<ForceTreeProps> = ({
           const allVerticalNodes = new Set([hoveredNode.id, ...Array.from(downstreamNodes), ...Array.from(upstreamNodes)]);
           const isRelevant = allVerticalNodes.has(d.id);
           if (isRelevant) return 1;
-          return d.type === 'track' ? 0.1 : 0.2;
+          return d.type === 'track' ? 0.03 : 0.06; // Reduced from 0.1/0.2 to 0.03/0.06 for much dimmer text
         }
         return d.type === 'track' ? 0.7 : 1;
       });
