@@ -235,37 +235,71 @@ const ForceGraph: React.FC<ForceGraphProps> = ({ data, width = 1200, height = 80
         }
       });
       
-      // Map albums to their primary artist (first artist)
+      // Map albums to their primary parent (artist or genre) based on visibility
       filteredNodes.filter(n => n.group === 'album').forEach(album => {
-        const artistLink = data.links.find(l => 
-          (l.source === album.id && filteredNodes.find(n => n.id === l.target)?.group === 'artist') ||
-          (l.target === album.id && filteredNodes.find(n => n.id === l.source)?.group === 'artist')
-        );
-        if (artistLink) {
-          const artistId = artistLink.source === album.id ? artistLink.target : artistLink.source;
-          nodeParents.set(album.id, artistId as string);
+        // First try to find artist link (if artists are visible)
+        if (showArtists) {
+          const artistLink = filteredLinks.find(l => 
+            (l.source === album.id && filteredNodes.find(n => n.id === l.target)?.group === 'artist') ||
+            (l.target === album.id && filteredNodes.find(n => n.id === l.source)?.group === 'artist')
+          );
+          if (artistLink) {
+            const artistId = artistLink.source === album.id ? artistLink.target : artistLink.source;
+            nodeParents.set(album.id, artistId as string);
+            return;
+          }
+        }
+        
+        // Fallback to genre link (if genres are visible and artists are hidden)
+        if (showGenres) {
+          const genreLink = filteredLinks.find(l => 
+            (l.source === album.id && filteredNodes.find(n => n.id === l.target)?.group === 'genre') ||
+            (l.target === album.id && filteredNodes.find(n => n.id === l.source)?.group === 'genre')
+          );
+          if (genreLink) {
+            const genreId = genreLink.source === album.id ? genreLink.target : genreLink.source;
+            nodeParents.set(album.id, genreId as string);
+          }
         }
       });
       
-      // Map tracks to their primary parent (album or artist)
+      // Map tracks to their primary parent (album, artist, or genre) based on visibility
       filteredNodes.filter(n => n.group === 'track').forEach(track => {
-        // First try to find album link
-        const albumLink = data.links.find(l => 
-          (l.source === track.id && filteredNodes.find(n => n.id === l.target)?.group === 'album') ||
-          (l.target === track.id && filteredNodes.find(n => n.id === l.source)?.group === 'album')
-        );
-        if (albumLink) {
-          const albumId = albumLink.source === track.id ? albumLink.target : albumLink.source;
-          nodeParents.set(track.id, albumId as string);
-        } else {
-          // Fallback to artist link
-          const artistLink = data.links.find(l => 
+        // First try to find album link (if albums are visible)
+        if (showAlbums) {
+          const albumLink = filteredLinks.find(l => 
+            (l.source === track.id && filteredNodes.find(n => n.id === l.target)?.group === 'album') ||
+            (l.target === track.id && filteredNodes.find(n => n.id === l.source)?.group === 'album')
+          );
+          if (albumLink) {
+            const albumId = albumLink.source === track.id ? albumLink.target : albumLink.source;
+            nodeParents.set(track.id, albumId as string);
+            return;
+          }
+        }
+        
+        // Fallback to artist link (if artists are visible)
+        if (showArtists) {
+          const artistLink = filteredLinks.find(l => 
             (l.source === track.id && filteredNodes.find(n => n.id === l.target)?.group === 'artist') ||
             (l.target === track.id && filteredNodes.find(n => n.id === l.source)?.group === 'artist')
           );
           if (artistLink) {
             const artistId = artistLink.source === track.id ? artistLink.target : artistLink.source;
             nodeParents.set(track.id, artistId as string);
+            return;
+          }
+        }
+        
+        // Final fallback to genre link (if genres are visible)
+        if (showGenres) {
+          const genreLink = filteredLinks.find(l => 
+            (l.source === track.id && filteredNodes.find(n => n.id === l.target)?.group === 'genre') ||
+            (l.target === track.id && filteredNodes.find(n => n.id === l.source)?.group === 'genre')
+          );
+          if (genreLink) {
+            const genreId = genreLink.source === track.id ? genreLink.target : genreLink.source;
+            nodeParents.set(track.id, genreId as string);
           }
         }
       });
@@ -307,7 +341,7 @@ const ForceGraph: React.FC<ForceGraphProps> = ({ data, width = 1200, height = 80
               }
             }
           } else if (d.group === 'album') {
-            // Position albums around their artist
+            // Position albums around their parent (artist or genre)
             const parentId = nodeParents.get(d.id);
             if (parentId) {
               const parent = filteredNodes.find(n => n.id === parentId);
@@ -315,8 +349,8 @@ const ForceGraph: React.FC<ForceGraphProps> = ({ data, width = 1200, height = 80
                 const dx = (d.x || 0) - parent.x;
                 const dy = (d.y || 0) - parent.y;
                 const distance = Math.sqrt(dx * dx + dy * dy);
-                // Distance for albums around artists
-                const targetDistance = 100;
+                // Adjusted distance based on parent type
+                const targetDistance = parent.group === 'artist' ? 100 : 150; // Further out for genre connections
                 
                 if (distance > 0) {
                   const factor = (targetDistance - distance) / distance * alpha * 0.3;
@@ -326,7 +360,7 @@ const ForceGraph: React.FC<ForceGraphProps> = ({ data, width = 1200, height = 80
               }
             }
           } else if (d.group === 'track') {
-            // Position tracks around their parent (album or artist)
+            // Position tracks around their parent (album, artist, or genre)
             const parentId = nodeParents.get(d.id);
             if (parentId) {
               const parent = filteredNodes.find(n => n.id === parentId);
@@ -335,7 +369,9 @@ const ForceGraph: React.FC<ForceGraphProps> = ({ data, width = 1200, height = 80
                 const dy = (d.y || 0) - parent.y;
                 const distance = Math.sqrt(dx * dx + dy * dy);
                 // Adjusted distance based on parent type
-                const targetDistance = parent.group === 'album' ? 50 : 70;
+                let targetDistance = 50; // Default for album
+                if (parent.group === 'artist') targetDistance = 70;
+                else if (parent.group === 'genre') targetDistance = 120; // Further out for genre connections
                 
                 if (distance > 0) {
                   const factor = (targetDistance - distance) / distance * alpha * 0.3;
@@ -354,29 +390,219 @@ const ForceGraph: React.FC<ForceGraphProps> = ({ data, width = 1200, height = 80
       simulation.force('center', d3.forceCenter(width / 2, height / 2).strength(0.02));
     }
 
-    // Filter links based on clustering settings and node visibility
-    const filteredLinks = data.links.filter(link => {
-      const sourceId = typeof link.source === 'string' ? link.source : (link.source as any).id;
-      const targetId = typeof link.target === 'string' ? link.target : (link.target as any).id;
+    // Create dynamic links based on visibility settings
+    const createDynamicLinks = () => {
+      const dynamicLinks: GraphLink[] = [];
       
-      // Both nodes must be visible
-      if (!visibleNodeIds.has(sourceId) || !visibleNodeIds.has(targetId)) {
-        return false;
-      }
+      // Start with original links
+      data.links.forEach(link => {
+        const sourceId = typeof link.source === 'string' ? link.source : (link.source as any).id;
+        const targetId = typeof link.target === 'string' ? link.target : (link.target as any).id;
+        
+        // Both nodes must be visible
+        if (visibleNodeIds.has(sourceId) && visibleNodeIds.has(targetId)) {
+          // Check clustering settings
+          if (trackClustering || link.type !== 'cluster-track') {
+            if (artistClustering || link.type !== 'cluster-artist') {
+              if (albumClustering || link.type !== 'cluster-album') {
+                dynamicLinks.push(link);
+              }
+            }
+          }
+        }
+      });
       
-      // Check clustering settings
-      if (!trackClustering && link.type === 'cluster-track') {
-        return false;
-      }
-      if (!artistClustering && link.type === 'cluster-artist') {
-        return false;
-      }
-      if (!albumClustering && link.type === 'cluster-album') {
-        return false;
-      }
+      // Add dynamic reconnection links for orphaned nodes
+      filteredNodes.forEach(node => {
+        if (node.group === 'track') {
+          // Find if track has album connection
+          const hasAlbumConnection = dynamicLinks.some(link => {
+            const sourceId = typeof link.source === 'string' ? link.source : (link.source as any).id;
+            const targetId = typeof link.target === 'string' ? link.target : (link.target as any).id;
+            return (sourceId === node.id || targetId === node.id) && 
+                   (link.type === 'album-track');
+          });
+          
+          // If no album connection and albums are hidden, connect to artists
+          if (!hasAlbumConnection && !showAlbums) {
+            // Find artist connections in original data
+            data.links.forEach(link => {
+              const sourceId = typeof link.source === 'string' ? link.source : (link.source as any).id;
+              const targetId = typeof link.target === 'string' ? link.target : (link.target as any).id;
+              
+              if (link.type === 'artist-track') {
+                let artistId: string, trackId: string;
+                if (sourceId === node.id) {
+                  artistId = targetId;
+                  trackId = sourceId;
+                } else if (targetId === node.id) {
+                  artistId = sourceId;
+                  trackId = targetId;
+                } else {
+                  return;
+                }
+                
+                // Only add if artist is visible
+                if (visibleNodeIds.has(artistId)) {
+                  const existingLink = dynamicLinks.find(l => {
+                    const lSourceId = typeof l.source === 'string' ? l.source : (l.source as any).id;
+                    const lTargetId = typeof l.target === 'string' ? l.target : (l.target as any).id;
+                    return (lSourceId === artistId && lTargetId === trackId) ||
+                           (lSourceId === trackId && lTargetId === artistId);
+                  });
+                  
+                  if (!existingLink) {
+                    dynamicLinks.push({
+                      source: trackId,
+                      target: artistId,
+                      strength: 0.8, // Strong connection for direct links
+                      type: 'artist-track'
+                    });
+                  }
+                }
+              }
+            });
+          }
+          
+          // If no artist connection and artists are hidden, connect to genres
+          if (!showArtists) {
+            const hasArtistConnection = dynamicLinks.some(link => {
+              const sourceId = typeof link.source === 'string' ? link.source : (link.source as any).id;
+              const targetId = typeof link.target === 'string' ? link.target : (link.target as any).id;
+              return (sourceId === node.id || targetId === node.id) && 
+                     (link.type === 'artist-track');
+            });
+            
+            if (!hasArtistConnection) {
+              // Find genre connections through artist relationships
+              data.links.forEach(artistTrackLink => {
+                if (artistTrackLink.type !== 'artist-track') return;
+                
+                const sourceId = typeof artistTrackLink.source === 'string' ? artistTrackLink.source : (artistTrackLink.source as any).id;
+                const targetId = typeof artistTrackLink.target === 'string' ? artistTrackLink.target : (artistTrackLink.target as any).id;
+                
+                let artistId: string;
+                if (sourceId === node.id) {
+                  artistId = targetId;
+                } else if (targetId === node.id) {
+                  artistId = sourceId;
+                } else {
+                  return;
+                }
+                
+                // Find genre for this artist
+                data.links.forEach(genreArtistLink => {
+                  if (genreArtistLink.type !== 'genre-artist') return;
+                  
+                  const gSourceId = typeof genreArtistLink.source === 'string' ? genreArtistLink.source : (genreArtistLink.source as any).id;
+                  const gTargetId = typeof genreArtistLink.target === 'string' ? genreArtistLink.target : (genreArtistLink.target as any).id;
+                  
+                  let genreId: string;
+                  if (gSourceId === artistId) {
+                    genreId = gTargetId;
+                  } else if (gTargetId === artistId) {
+                    genreId = gSourceId;
+                  } else {
+                    return;
+                  }
+                  
+                  // Only add if genre is visible
+                  if (visibleNodeIds.has(genreId)) {
+                    const existingLink = dynamicLinks.find(l => {
+                      const lSourceId = typeof l.source === 'string' ? l.source : (l.source as any).id;
+                      const lTargetId = typeof l.target === 'string' ? l.target : (l.target as any).id;
+                      return (lSourceId === genreId && lTargetId === node.id) ||
+                             (lSourceId === node.id && lTargetId === genreId);
+                    });
+                    
+                    if (!existingLink) {
+                      dynamicLinks.push({
+                        source: node.id,
+                        target: genreId,
+                        strength: 0.6, // Medium connection for skip-level links
+                        type: 'genre-track' as any
+                      });
+                    }
+                  }
+                });
+              });
+            }
+          }
+        }
+        
+        // Handle album reconnections
+        if (node.group === 'album') {
+          // If artists are hidden, connect albums to genres
+          if (!showArtists) {
+            const hasArtistConnection = dynamicLinks.some(link => {
+              const sourceId = typeof link.source === 'string' ? link.source : (link.source as any).id;
+              const targetId = typeof link.target === 'string' ? link.target : (link.target as any).id;
+              return (sourceId === node.id || targetId === node.id) && 
+                     (link.type === 'artist-album');
+            });
+            
+            if (!hasArtistConnection) {
+              // Find genre connections through artist relationships
+              data.links.forEach(artistAlbumLink => {
+                if (artistAlbumLink.type !== 'artist-album') return;
+                
+                const sourceId = typeof artistAlbumLink.source === 'string' ? artistAlbumLink.source : (artistAlbumLink.source as any).id;
+                const targetId = typeof artistAlbumLink.target === 'string' ? artistAlbumLink.target : (artistAlbumLink.target as any).id;
+                
+                let artistId: string;
+                if (sourceId === node.id) {
+                  artistId = targetId;
+                } else if (targetId === node.id) {
+                  artistId = sourceId;
+                } else {
+                  return;
+                }
+                
+                // Find genre for this artist
+                data.links.forEach(genreArtistLink => {
+                  if (genreArtistLink.type !== 'genre-artist') return;
+                  
+                  const gSourceId = typeof genreArtistLink.source === 'string' ? genreArtistLink.source : (genreArtistLink.source as any).id;
+                  const gTargetId = typeof genreArtistLink.target === 'string' ? genreArtistLink.target : (genreArtistLink.target as any).id;
+                  
+                  let genreId: string;
+                  if (gSourceId === artistId) {
+                    genreId = gTargetId;
+                  } else if (gTargetId === artistId) {
+                    genreId = gSourceId;
+                  } else {
+                    return;
+                  }
+                  
+                  // Only add if genre is visible
+                  if (visibleNodeIds.has(genreId)) {
+                    const existingLink = dynamicLinks.find(l => {
+                      const lSourceId = typeof l.source === 'string' ? l.source : (l.source as any).id;
+                      const lTargetId = typeof l.target === 'string' ? l.target : (l.target as any).id;
+                      return (lSourceId === genreId && lTargetId === node.id) ||
+                             (lSourceId === node.id && lTargetId === genreId);
+                    });
+                    
+                    if (!existingLink) {
+                      dynamicLinks.push({
+                        source: node.id,
+                        target: genreId,
+                        strength: 0.7, // Strong connection for album-genre links
+                        type: 'genre-album' as any
+                      });
+                    }
+                  }
+                });
+              });
+            }
+          }
+        }
+      });
       
-      return true;
-    });
+      return dynamicLinks;
+    };
+    
+    const filteredLinks = createDynamicLinks();
 
     // Create links with dynamic opacity
     const link = container.append('g')

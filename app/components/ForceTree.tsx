@@ -228,29 +228,219 @@ const ForceTree: React.FC<ForceTreeProps> = ({
       }
     });
 
-    // Filter links based on clustering settings and node visibility
-    const filteredLinks = data.links.filter(link => {
-      const sourceId = typeof link.source === 'string' ? link.source : (link.source as any).id;
-      const targetId = typeof link.target === 'string' ? link.target : (link.target as any).id;
+    // Create dynamic links based on visibility settings
+    const createDynamicLinks = () => {
+      const dynamicLinks: ForceTreeLink[] = [];
       
-      // Both nodes must be visible
-      if (!visibleNodeIds.has(sourceId) || !visibleNodeIds.has(targetId)) {
-        return false;
-      }
+      // Start with original links
+      data.links.forEach(link => {
+        const sourceId = typeof link.source === 'string' ? link.source : (link.source as any).id;
+        const targetId = typeof link.target === 'string' ? link.target : (link.target as any).id;
+        
+        // Both nodes must be visible
+        if (visibleNodeIds.has(sourceId) && visibleNodeIds.has(targetId)) {
+          // Check clustering settings
+          if (trackClustering || link.type !== 'cluster-track') {
+            if (artistClustering || link.type !== 'cluster-artist') {
+              if (albumClustering || link.type !== 'cluster-album') {
+                dynamicLinks.push(link);
+              }
+            }
+          }
+        }
+      });
       
-      // Check clustering settings
-      if (!trackClustering && link.type === 'cluster-track') {
-        return false;
-      }
-      if (!artistClustering && link.type === 'cluster-artist') {
-        return false;
-      }
-      if (!albumClustering && link.type === 'cluster-album') {
-        return false;
-      }
+      // Add dynamic reconnection links for orphaned nodes
+      filteredNodes.forEach(node => {
+        if (node.type === 'track') {
+          // Find if track has album connection
+          const hasAlbumConnection = dynamicLinks.some(link => {
+            const sourceId = typeof link.source === 'string' ? link.source : (link.source as any).id;
+            const targetId = typeof link.target === 'string' ? link.target : (link.target as any).id;
+            return (sourceId === node.id || targetId === node.id) && 
+                   (link.type === 'album-track');
+          });
+          
+          // If no album connection and albums are hidden, connect to artists
+          if (!hasAlbumConnection && !showAlbums) {
+            // Find artist connections in original data
+            data.links.forEach(link => {
+              const sourceId = typeof link.source === 'string' ? link.source : (link.source as any).id;
+              const targetId = typeof link.target === 'string' ? link.target : (link.target as any).id;
+              
+              if (link.type === 'artist-track') {
+                let artistId: string, trackId: string;
+                if (sourceId === node.id) {
+                  artistId = targetId;
+                  trackId = sourceId;
+                } else if (targetId === node.id) {
+                  artistId = sourceId;
+                  trackId = targetId;
+                } else {
+                  return;
+                }
+                
+                // Only add if artist is visible
+                if (visibleNodeIds.has(artistId)) {
+                  const existingLink = dynamicLinks.find(l => {
+                    const lSourceId = typeof l.source === 'string' ? l.source : (l.source as any).id;
+                    const lTargetId = typeof l.target === 'string' ? l.target : (l.target as any).id;
+                    return (lSourceId === artistId && lTargetId === trackId) ||
+                           (lSourceId === trackId && lTargetId === artistId);
+                  });
+                  
+                  if (!existingLink) {
+                    dynamicLinks.push({
+                      source: artistId,
+                      target: trackId,
+                      value: 50, // Strong connection for direct links
+                      type: 'artist-track'
+                    });
+                  }
+                }
+              }
+            });
+          }
+          
+          // If no artist connection and artists are hidden, connect to genres
+          if (!showArtists) {
+            const hasArtistConnection = dynamicLinks.some(link => {
+              const sourceId = typeof link.source === 'string' ? link.source : (link.source as any).id;
+              const targetId = typeof link.target === 'string' ? link.target : (link.target as any).id;
+              return (sourceId === node.id || targetId === node.id) && 
+                     (link.type === 'artist-track');
+            });
+            
+            if (!hasArtistConnection) {
+              // Find genre connections through artist relationships
+              data.links.forEach(artistTrackLink => {
+                if (artistTrackLink.type !== 'artist-track') return;
+                
+                const sourceId = typeof artistTrackLink.source === 'string' ? artistTrackLink.source : (artistTrackLink.source as any).id;
+                const targetId = typeof artistTrackLink.target === 'string' ? artistTrackLink.target : (artistTrackLink.target as any).id;
+                
+                let artistId: string;
+                if (sourceId === node.id) {
+                  artistId = targetId;
+                } else if (targetId === node.id) {
+                  artistId = sourceId;
+                } else {
+                  return;
+                }
+                
+                // Find genre for this artist
+                data.links.forEach(genreArtistLink => {
+                  if (genreArtistLink.type !== 'genre-artist') return;
+                  
+                  const gSourceId = typeof genreArtistLink.source === 'string' ? genreArtistLink.source : (genreArtistLink.source as any).id;
+                  const gTargetId = typeof genreArtistLink.target === 'string' ? genreArtistLink.target : (genreArtistLink.target as any).id;
+                  
+                  let genreId: string;
+                  if (gSourceId === artistId) {
+                    genreId = gTargetId;
+                  } else if (gTargetId === artistId) {
+                    genreId = gSourceId;
+                  } else {
+                    return;
+                  }
+                  
+                  // Only add if genre is visible
+                  if (visibleNodeIds.has(genreId)) {
+                    const existingLink = dynamicLinks.find(l => {
+                      const lSourceId = typeof l.source === 'string' ? l.source : (l.source as any).id;
+                      const lTargetId = typeof l.target === 'string' ? l.target : (l.target as any).id;
+                      return (lSourceId === genreId && lTargetId === node.id) ||
+                             (lSourceId === node.id && lTargetId === genreId);
+                    });
+                    
+                    if (!existingLink) {
+                      dynamicLinks.push({
+                        source: genreId,
+                        target: node.id,
+                        value: 40, // Medium connection for skip-level links
+                        type: 'genre-track' as any
+                      });
+                    }
+                  }
+                });
+              });
+            }
+          }
+        }
+        
+        // Handle album reconnections
+        if (node.type === 'album') {
+          // If artists are hidden, connect albums to genres
+          if (!showArtists) {
+            const hasArtistConnection = dynamicLinks.some(link => {
+              const sourceId = typeof link.source === 'string' ? link.source : (link.source as any).id;
+              const targetId = typeof link.target === 'string' ? link.target : (link.target as any).id;
+              return (sourceId === node.id || targetId === node.id) && 
+                     (link.type === 'artist-album');
+            });
+            
+            if (!hasArtistConnection) {
+              // Find genre connections through artist relationships
+              data.links.forEach(artistAlbumLink => {
+                if (artistAlbumLink.type !== 'artist-album') return;
+                
+                const sourceId = typeof artistAlbumLink.source === 'string' ? artistAlbumLink.source : (artistAlbumLink.source as any).id;
+                const targetId = typeof artistAlbumLink.target === 'string' ? artistAlbumLink.target : (artistAlbumLink.target as any).id;
+                
+                let artistId: string;
+                if (sourceId === node.id) {
+                  artistId = targetId;
+                } else if (targetId === node.id) {
+                  artistId = sourceId;
+                } else {
+                  return;
+                }
+                
+                // Find genre for this artist
+                data.links.forEach(genreArtistLink => {
+                  if (genreArtistLink.type !== 'genre-artist') return;
+                  
+                  const gSourceId = typeof genreArtistLink.source === 'string' ? genreArtistLink.source : (genreArtistLink.source as any).id;
+                  const gTargetId = typeof genreArtistLink.target === 'string' ? genreArtistLink.target : (genreArtistLink.target as any).id;
+                  
+                  let genreId: string;
+                  if (gSourceId === artistId) {
+                    genreId = gTargetId;
+                  } else if (gTargetId === artistId) {
+                    genreId = gSourceId;
+                  } else {
+                    return;
+                  }
+                  
+                  // Only add if genre is visible
+                  if (visibleNodeIds.has(genreId)) {
+                    const existingLink = dynamicLinks.find(l => {
+                      const lSourceId = typeof l.source === 'string' ? l.source : (l.source as any).id;
+                      const lTargetId = typeof l.target === 'string' ? l.target : (l.target as any).id;
+                      return (lSourceId === genreId && lTargetId === node.id) ||
+                             (lSourceId === node.id && lTargetId === genreId);
+                    });
+                    
+                    if (!existingLink) {
+                      dynamicLinks.push({
+                        source: genreId,
+                        target: node.id,
+                        value: 45, // Strong connection for album-genre links
+                        type: 'genre-album' as any
+                      });
+                    }
+                  }
+                });
+              });
+            }
+          }
+        }
+      });
       
-      return true;
-    });
+      return dynamicLinks;
+    };
+    
+    const filteredLinks = createDynamicLinks();
     
     // Filter nodes based on visibility
     const filteredNodes = data.nodes.filter(node => visibleNodeIds.has(node.id));
