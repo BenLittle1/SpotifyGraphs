@@ -65,6 +65,124 @@ const ForceGraph: React.FC<ForceGraphProps> = ({
     'genre-cluster': 0.5,
   });
 
+  // Store simulation reference
+  const simulationRef = useRef<d3.Simulation<GraphNode, undefined> | null>(null);
+
+  // Update simulation when physics parameters change
+  useEffect(() => {
+    if (simulationRef.current && data.nodes.length > 0) {
+      const simulation = simulationRef.current;
+      
+      // Update forces with new parameters
+      simulation.force('charge', d3.forceManyBody<GraphNode>()
+        .strength((d) => {
+          if (d.group === 'cluster' || d.group === 'genre-cluster' || d.group === 'album-cluster') {
+            return -10;
+          }
+          
+          const isSmall = data.nodes.length <= 400;
+          const isMedium = data.nodes.length <= 800;
+          const isLarge = data.nodes.length <= 1200;
+          
+          const baseChargeStrength = isSmall ? -600 : isMedium ? -400 : isLarge ? -250 : -150;
+          const baseGenreChargeStrength = isSmall ? -800 : isMedium ? -600 : isLarge ? -400 : -250;
+          
+          const chargeStrength = externalChargeStrength !== undefined ? externalChargeStrength * -300 : baseChargeStrength;
+          const genreChargeStrength = externalChargeStrength !== undefined ? externalChargeStrength * -400 : baseGenreChargeStrength;
+          
+          if (d.group === 'genre') {
+            return genreChargeStrength - (d.radius || 10) * 5;
+          }
+          if (d.group === 'album') {
+            return chargeStrength * 0.7 - (d.radius || 10) * 2;
+          }
+          return chargeStrength - (d.radius || 10) * 2;
+        }));
+
+      simulation.force('collision', d3.forceCollide<GraphNode>()
+        .radius((d) => {
+          if (d.group === 'cluster' || d.group === 'genre-cluster' || d.group === 'album-cluster') {
+            return 1;
+          }
+          
+          const isSmall = data.nodes.length <= 400;
+          const isMedium = data.nodes.length <= 800;
+          const isLarge = data.nodes.length <= 1200;
+          const baseCollisionPadding = isSmall ? 10 : isMedium ? 8 : isLarge ? 6 : 4;
+          const collisionPadding = externalCollisionRadius !== undefined ? externalCollisionRadius * 5 : baseCollisionPadding;
+          
+          let radius;
+          if (d.group === 'genre') {
+            radius = (30 + (d.radius || 20) * 0.5) * nodeScale;
+          } else if (d.group === 'artist') {
+            radius = Math.max(15, Math.min(30, (d.popularity || 50) / 3.3)) * nodeScale;
+          } else if (d.group === 'album') {
+            radius = Math.max(12, Math.min(25, (d.popularity || 50) / 4)) * nodeScale;
+          } else {
+            radius = Math.max(8, Math.min(15, (d.popularity || 50) / 6.7)) * nodeScale;
+          }
+          return radius + collisionPadding;
+        })
+        .strength(0.7));
+
+      simulation.force('gravity', d3.forceCenter(width / 2, height / 2).strength(gravity));
+      
+      // Restart simulation to apply changes
+      simulation.alpha(0.3).restart();
+    }
+  }, [externalChargeStrength, externalCollisionRadius, externalGravity, externalNodeScale, data.nodes.length, width, height, gravity, nodeScale]);
+
+  // Update link opacity in real-time
+  useEffect(() => {
+    if (svgRef.current) {
+      const svg = d3.select(svgRef.current);
+      svg.selectAll('.link')
+        .attr('stroke-opacity', linkOpacity);
+    }
+  }, [linkOpacity]);
+
+  // Update node scale in real-time
+  useEffect(() => {
+    if (svgRef.current) {
+      const svg = d3.select(svgRef.current);
+      svg.selectAll('circle')
+        .attr('r', (d: any) => {
+          if (isHierarchical) {
+            if (d.group === 'genre') {
+              return (30 + (d.radius || 20) * 0.5) * nodeScale;
+            } else if (d.group === 'artist') {
+              return Math.max(15, Math.min(30, (d.popularity || 50) / 3.3)) * nodeScale;
+            } else if (d.group === 'album') {
+              return Math.max(12, Math.min(25, (d.popularity || 50) / 4)) * nodeScale;
+            } else {
+              return Math.max(8, Math.min(15, (d.popularity || 50) / 6.7)) * nodeScale;
+            }
+          }
+          return (d.radius || 10) * nodeScale;
+        });
+      
+      // Update text positions for scaled nodes
+      svg.selectAll('text')
+        .attr('y', (d: any) => {
+          let radius;
+          if (isHierarchical) {
+            if (d.group === 'genre') {
+              radius = (30 + (d.radius || 20) * 0.5) * nodeScale;
+            } else if (d.group === 'artist') {
+              radius = Math.max(15, Math.min(30, (d.popularity || 50) / 3.3)) * nodeScale;
+            } else if (d.group === 'album') {
+              radius = Math.max(12, Math.min(25, (d.popularity || 50) / 4)) * nodeScale;
+            } else {
+              radius = Math.max(8, Math.min(15, (d.popularity || 50) / 6.7)) * nodeScale;
+            }
+          } else {
+            radius = (d.radius || 10) * nodeScale;
+          }
+          return radius + 15;
+        });
+    }
+  }, [nodeScale, isHierarchical]);
+
   useEffect(() => {
     if (!svgRef.current || !data.nodes.length) return;
 
@@ -154,6 +272,7 @@ const ForceGraph: React.FC<ForceGraphProps> = ({
 
     // Create force simulation with dynamic parameters
     const simulation = d3.forceSimulation<GraphNode>()
+    simulationRef.current = simulation;
       .force('center', d3.forceCenter(width / 2, height / 2))
       .force('gravity', d3.forceCenter(width / 2, height / 2).strength(gravity))
       .force('link', d3.forceLink<GraphNode, GraphLink>()
@@ -738,6 +857,7 @@ const ForceGraph: React.FC<ForceGraphProps> = ({
       .selectAll('line')
       .data(validLinks)
       .enter().append('line')
+      .attr('class', 'link')
       .attr('stroke', '#ffffff')
       .attr('stroke-opacity', (d) => {
         const baseOpacity = linkOpacities[d.type as keyof typeof linkOpacities] || linkOpacity;

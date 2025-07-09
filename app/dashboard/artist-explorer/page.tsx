@@ -440,6 +440,7 @@ export default function ArtistExplorerPage() {
 
           {graphData && !loading && (
             <ForceGraph
+              key={`${chargeStrength}-${collisionRadius}-${linkDistance}-${gravity}-${nodeScale}-${linkOpacity}`}
               data={graphData}
               width={window.innerWidth}
               height={window.innerHeight - 73}
