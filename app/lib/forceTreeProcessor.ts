@@ -241,8 +241,24 @@ export function processSpotifyDataToForceTree(
     });
   });
   
-  // Sort albums by popularity and create nodes for top albums
+  // Helper function to check if an album is a single
+  const isSingle = (albumId: string): boolean => {
+    const albumTracks = albumTrackMap.get(albumId) || [];
+    if (albumTracks.length !== 1) return false;
+    
+    const track = albumTracks[0];
+    const albumName = track.album.name.toLowerCase().trim();
+    const trackName = track.name.toLowerCase().trim();
+    
+    // Check if names are identical or very similar
+    return albumName === trackName || 
+           albumName.includes(trackName) || 
+           trackName.includes(albumName);
+  };
+
+  // Sort albums by popularity and create nodes for top albums (excluding singles)
   const sortedAlbumIds = Array.from(albumPopularityMap.keys())
+    .filter(albumId => !isSingle(albumId)) // Skip singles
     .sort((a, b) => albumPopularityMap.get(b)! - albumPopularityMap.get(a)!);
   
   sortedAlbumIds.slice(0, albumNodeCount).forEach(albumId => {

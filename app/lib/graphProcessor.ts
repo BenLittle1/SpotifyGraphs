@@ -173,13 +173,28 @@ export function processSpotifyDataToGraph(
     });
   });
 
-  // Create album nodes and clustering nodes
+  // Helper function to check if an album is a single
+  const isSingle = (albumId: string): boolean => {
+    const albumTracks = tracks.filter(t => t.album.id === albumId);
+    if (albumTracks.length !== 1) return false;
+    
+    const track = albumTracks[0];
+    const albumName = track.album.name.toLowerCase().trim();
+    const trackName = track.name.toLowerCase().trim();
+    
+    // Check if names are identical or very similar
+    return albumName === trackName || 
+           albumName.includes(trackName) || 
+           trackName.includes(albumName);
+  };
+
+  // Create album nodes and clustering nodes (excluding singles)
   const albumMap = new Map<string, GraphNode>();
   const albumClusterMap = new Map<string, GraphNode>();
   const albumArtistMap = new Map<string, Set<string>>(); // album ID -> artist IDs
   
   tracks.forEach(track => {
-    if (!albumMap.has(track.album.id)) {
+    if (!albumMap.has(track.album.id) && !isSingle(track.album.id)) {
       // Calculate album popularity as average of its tracks
       const albumTracks = tracks.filter(t => t.album.id === track.album.id);
       const albumPopularity = albumTracks.reduce((sum, t) => sum + t.popularity, 0) / albumTracks.length;
@@ -288,10 +303,12 @@ export function processSpotifyDataToGraph(
     track.artists.forEach(trackArtist => {
       const artistNodeId = `artist-${trackArtist.id}`;
       if (nodeMap.has(artistNodeId)) {
+        // For singles (no album node), make artist-track link stronger
+        const linkStrength = nodeMap.has(albumNodeId) ? 0.3 : 0.8;
         links.push({
           source: trackNode.id,
           target: artistNodeId,
-          strength: 0.3, // Weaker since primary connection is through album
+          strength: linkStrength,
           type: 'artist-track',
         });
 
