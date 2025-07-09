@@ -68,7 +68,7 @@ const ForceTree: React.FC<ForceTreeProps> = ({
     const svg = d3.select(svgRef.current);
     svg.selectAll('*').remove();
 
-    // Function to find parent and child nodes with special logic for genres
+    // Function to find parent and child nodes with special logic for different node types
     const findVerticalNodes = (nodeId: string): { parents: Set<string>, children: Set<string> } => {
       const parents = new Set<string>();
       const children = new Set<string>();
@@ -81,30 +81,62 @@ const ForceTree: React.FC<ForceTreeProps> = ({
       // Find the hovered node
       const hoveredNode = data.nodes.find(n => n.id === nodeId);
       
-      // If the hovered node is a genre, show all descendants recursively
-      if (hoveredNode?.type === 'genre') {
-        // Helper function to recursively find all descendants from genre
-        const findAllDescendants = (currentId: string, visited = new Set<string>()) => {
-          if (visited.has(currentId)) return; // Prevent infinite loops
-          visited.add(currentId);
-          
-          hierarchicalLinks.forEach(link => {
-            const sourceId = typeof link.source === 'string' ? link.source : (link.source as any).id;
-            const targetId = typeof link.target === 'string' ? link.target : (link.target as any).id;
-            
-            // If this node is the source, the target is its child
-            if (sourceId === currentId && !children.has(targetId)) {
-              children.add(targetId);
-              // Recursively find children of this child
-              findAllDescendants(targetId, visited);
-            }
-          });
-        };
+      // Helper function to recursively find all ancestors up the hierarchy
+      const findAllAncestors = (currentId: string, visited = new Set<string>()) => {
+        if (visited.has(currentId)) return; // Prevent infinite loops
+        visited.add(currentId);
         
-        // Find all descendants from genre down to tracks
+        hierarchicalLinks.forEach(link => {
+          const sourceId = typeof link.source === 'string' ? link.source : (link.source as any).id;
+          const targetId = typeof link.target === 'string' ? link.target : (link.target as any).id;
+          
+          // If this node is the target, the source is its parent
+          if (targetId === currentId && !parents.has(sourceId)) {
+            parents.add(sourceId);
+            // Recursively find parents of this parent
+            findAllAncestors(sourceId, visited);
+          }
+        });
+      };
+      
+      // Helper function to recursively find all descendants down the hierarchy
+      const findAllDescendants = (currentId: string, visited = new Set<string>()) => {
+        if (visited.has(currentId)) return; // Prevent infinite loops
+        visited.add(currentId);
+        
+        hierarchicalLinks.forEach(link => {
+          const sourceId = typeof link.source === 'string' ? link.source : (link.source as any).id;
+          const targetId = typeof link.target === 'string' ? link.target : (link.target as any).id;
+          
+          // If this node is the source, the target is its child
+          if (sourceId === currentId && !children.has(targetId)) {
+            children.add(targetId);
+            // Recursively find children of this child
+            findAllDescendants(targetId, visited);
+          }
+        });
+      };
+      
+      if (hoveredNode?.type === 'genre') {
+        // For genres: show all descendants recursively (genre → artists → albums → tracks)
         findAllDescendants(nodeId);
+      } else if (hoveredNode?.type === 'album') {
+        // For albums: show all ancestors up to genre (album → artist → genre)
+        findAllAncestors(nodeId);
+        // Also show direct children (tracks in this album)
+        hierarchicalLinks.forEach(link => {
+          const sourceId = typeof link.source === 'string' ? link.source : (link.source as any).id;
+          const targetId = typeof link.target === 'string' ? link.target : (link.target as any).id;
+          
+          if (sourceId === nodeId) {
+            children.add(targetId);
+          }
+        });
+      } else if (hoveredNode?.type === 'track') {
+        // For tracks: show all ancestors up to genre (track → album → artist → genre OR track → artist → genre)
+        findAllAncestors(nodeId);
       } else {
-        // For non-genre nodes, show only direct parent-child relationships
+        // For artists: show only direct parent-child relationships
         
         // Find only direct parents (one level up)
         hierarchicalLinks.forEach(link => {
