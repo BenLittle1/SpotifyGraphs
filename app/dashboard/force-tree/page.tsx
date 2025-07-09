@@ -15,11 +15,11 @@ export default function ForceTreePage() {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [timeRange, setTimeRange] = useState<'short_term' | 'medium_term' | 'long_term'>('medium_term');
-  const [nodeCount, setNodeCount] = useState(400);
+  const [nodeCount, setNodeCount] = useState(1000);
   const [showNodeSelector, setShowNodeSelector] = useState(true);
   const [chargeStrength, setChargeStrength] = useState(1.8);
   const [collisionRadius, setCollisionRadius] = useState(2.0);
-  const [linkDistance, setLinkDistance] = useState(0.7);
+  const [linkDistance, setLinkDistance] = useState(2.0);
   const [gravity, setGravity] = useState(1.0);
   const [nodeScale, setNodeScale] = useState(1.0);
   const [linkOpacity, setLinkOpacity] = useState(0.4);
