@@ -836,178 +836,192 @@ const ForceGraph: React.FC<ForceGraphProps> = ({ data, width = 1200, height = 80
 
   return (
     <div className="relative">
-      {/* Left Panel - Dynamic Mode + Track Clustering */}
+      {/* Left Panel - Controls */}
       <div className="absolute top-4 left-4 z-20 bg-gray-800 p-3 rounded-lg border border-gray-600 space-y-3">
-        <label className="flex items-center space-x-2 text-white text-sm">
-          <input
-            type="checkbox"
-            checked={dynamicMode}
-            onChange={(e) => setDynamicMode(e.target.checked)}
-            className="w-4 h-4 text-purple-600 bg-gray-700 border-gray-600 rounded focus:ring-purple-500 focus:ring-2"
-          />
-          <span>Dynamic Mode</span>
-        </label>
-        
-        <label className="flex items-center space-x-2 text-white text-sm">
-          <input
-            type="checkbox"
-            checked={artistClustering}
-            onChange={(e) => setArtistClustering(e.target.checked)}
-            className="w-4 h-4 text-cyan-600 bg-gray-700 border-gray-600 rounded focus:ring-cyan-500 focus:ring-2"
-          />
-          <span>Artist Clustering</span>
-        </label>
-        
-
-        
-        <label className="flex items-center space-x-2 text-white text-sm">
-          <input
-            type="checkbox"
-            checked={trackClustering}
-            onChange={(e) => setTrackClustering(e.target.checked)}
-            className="w-4 h-4 text-blue-600 bg-gray-700 border-gray-600 rounded focus:ring-blue-500 focus:ring-2"
-          />
-          <span>Track Clustering</span>
-        </label>
-        
-        {/* Artist Clustering Opacity - Only show when artist clustering is enabled */}
-        {artistClustering && (
-          <div className="space-y-2">
-            <div className="text-white text-xs font-semibold">Artist Clustering</div>
-            <div className="flex items-center space-x-2">
-              <span className="text-xs text-gray-300 w-20">Cluster↔Artist</span>
-              <input
-                type="range"
-                min="0"
-                max="1"
-                step="0.1"
-                value={linkOpacities['cluster-artist']}
-                onChange={(e) => setLinkOpacities(prev => ({...prev, 'cluster-artist': parseFloat(e.target.value)}))}
-                className="w-16 h-1 bg-gray-700 rounded-lg appearance-none cursor-pointer"
-              />
-              <span className="text-xs text-gray-400 w-8">{linkOpacities['cluster-artist']}</span>
-            </div>
-          </div>
-        )}
-        
-        {/* Genre Clustering Opacity - Always enabled */}
-        <div className="space-y-2">
-          <div className="text-white text-xs font-semibold">Genre Clustering</div>
-          <div className="flex items-center space-x-2">
-            <span className="text-xs text-gray-300 w-20">Genre↔Cluster</span>
+        {/* Layer Visibility */}
+        <div className="space-y-3">
+          <div className="text-white text-sm font-semibold mb-2">Layer Visibility</div>
+          
+          <label className="flex items-center space-x-2 text-white text-sm">
             <input
-              type="range"
-              min="0"
-              max="1"
-              step="0.1"
-              value={linkOpacities['genre-cluster']}
-              onChange={(e) => setLinkOpacities(prev => ({...prev, 'genre-cluster': parseFloat(e.target.value)}))}
-              className="w-16 h-1 bg-gray-700 rounded-lg appearance-none cursor-pointer"
+              type="checkbox"
+              checked={showGenres}
+              onChange={(e) => setShowGenres(e.target.checked)}
+              className="w-4 h-4 text-pink-600 bg-gray-700 border-gray-600 rounded focus:ring-pink-500 focus:ring-2"
             />
-            <span className="text-xs text-gray-400 w-8">{linkOpacities['genre-cluster']}</span>
-          </div>
+            <span style={{ color: '#FF10F0' }}>Genres</span>
+          </label>
+          
+          <label className="flex items-center space-x-2 text-white text-sm">
+            <input
+              type="checkbox"
+              checked={showArtists}
+              onChange={(e) => setShowArtists(e.target.checked)}
+              className="w-4 h-4 text-purple-600 bg-gray-700 border-gray-600 rounded focus:ring-purple-500 focus:ring-2"
+            />
+            <span style={{ color: '#A855F7' }}>Artists</span>
+          </label>
+          
+          <label className="flex items-center space-x-2 text-white text-sm">
+            <input
+              type="checkbox"
+              checked={showAlbums}
+              onChange={(e) => setShowAlbums(e.target.checked)}
+              className="w-4 h-4 text-green-600 bg-gray-700 border-gray-600 rounded focus:ring-green-500 focus:ring-2"
+            />
+            <span style={{ color: '#10FF80' }}>Albums</span>
+          </label>
+          
+          <label className="flex items-center space-x-2 text-white text-sm">
+            <input
+              type="checkbox"
+              checked={showTracks}
+              onChange={(e) => setShowTracks(e.target.checked)}
+              className="w-4 h-4 text-blue-600 bg-gray-700 border-gray-600 rounded focus:ring-blue-500 focus:ring-2"
+            />
+            <span style={{ color: '#0080FF' }}>Tracks</span>
+          </label>
         </div>
+
+        {/* Divider */}
+        <div className="border-t border-gray-600"></div>
         
-        {/* Track Clustering Opacity - Only show when track clustering is enabled */}
-        {trackClustering && (
+        {/* Clustering Controls */}
+        <div className="space-y-3">
+          <div className="text-white text-sm font-semibold mb-2">Clustering</div>
+          
+          <label className="flex items-center space-x-2 text-white text-sm">
+            <input
+              type="checkbox"
+              checked={dynamicMode}
+              onChange={(e) => setDynamicMode(e.target.checked)}
+              className="w-4 h-4 text-purple-600 bg-gray-700 border-gray-600 rounded focus:ring-purple-500 focus:ring-2"
+            />
+            <span>Dynamic Mode</span>
+          </label>
+          
+          <label className="flex items-center space-x-2 text-white text-sm">
+            <input
+              type="checkbox"
+              checked={artistClustering}
+              onChange={(e) => setArtistClustering(e.target.checked)}
+              className="w-4 h-4 text-cyan-600 bg-gray-700 border-gray-600 rounded focus:ring-cyan-500 focus:ring-2"
+            />
+            <span>Artist Clustering</span>
+          </label>
+          
+          <label className="flex items-center space-x-2 text-white text-sm">
+            <input
+              type="checkbox"
+              checked={trackClustering}
+              onChange={(e) => setTrackClustering(e.target.checked)}
+              className="w-4 h-4 text-blue-600 bg-gray-700 border-gray-600 rounded focus:ring-blue-500 focus:ring-2"
+            />
+            <span>Track Clustering</span>
+          </label>
+
+          {/* Album Clustering - Only show when albums are visible */}
+          {showAlbums && (
+            <label className="flex items-center space-x-2 text-white text-sm">
+              <input
+                type="checkbox"
+                checked={albumClustering}
+                onChange={(e) => setAlbumClustering(e.target.checked)}
+                className="w-4 h-4 text-green-600 bg-gray-700 border-gray-600 rounded focus:ring-green-500 focus:ring-2"
+              />
+              <span>Album Clustering</span>
+            </label>
+          )}
+        </div>
+
+        {/* Divider */}
+        <div className="border-t border-gray-600"></div>
+        
+        {/* Clustering Opacity Controls */}
+        <div className="space-y-3">
+          <div className="text-white text-sm font-semibold mb-2">Link Opacity</div>
+          
+          {/* Artist Clustering Opacity - Only show when artist clustering is enabled */}
+          {artistClustering && (
+            <div className="space-y-2">
+              <div className="text-white text-xs font-semibold">Artist Clustering</div>
+              <div className="flex items-center space-x-2">
+                <span className="text-xs text-gray-300 w-20">Cluster↔Artist</span>
+                <input
+                  type="range"
+                  min="0"
+                  max="1"
+                  step="0.1"
+                  value={linkOpacities['cluster-artist']}
+                  onChange={(e) => setLinkOpacities(prev => ({...prev, 'cluster-artist': parseFloat(e.target.value)}))}
+                  className="w-16 h-1 bg-gray-700 rounded-lg appearance-none cursor-pointer"
+                />
+                <span className="text-xs text-gray-400 w-8">{linkOpacities['cluster-artist']}</span>
+              </div>
+            </div>
+          )}
+          
+          {/* Genre Clustering Opacity - Always enabled */}
           <div className="space-y-2">
-            <div className="text-white text-xs font-semibold">Track Clustering</div>
+            <div className="text-white text-xs font-semibold">Genre Clustering</div>
             <div className="flex items-center space-x-2">
-              <span className="text-xs text-gray-300 w-20">Cluster↔Track</span>
+              <span className="text-xs text-gray-300 w-20">Genre↔Cluster</span>
               <input
                 type="range"
                 min="0"
                 max="1"
                 step="0.1"
-                value={linkOpacities['cluster-track']}
-                onChange={(e) => setLinkOpacities(prev => ({...prev, 'cluster-track': parseFloat(e.target.value)}))}
+                value={linkOpacities['genre-cluster']}
+                onChange={(e) => setLinkOpacities(prev => ({...prev, 'genre-cluster': parseFloat(e.target.value)}))}
                 className="w-16 h-1 bg-gray-700 rounded-lg appearance-none cursor-pointer"
               />
-              <span className="text-xs text-gray-400 w-8">{linkOpacities['cluster-track']}</span>
+              <span className="text-xs text-gray-400 w-8">{linkOpacities['genre-cluster']}</span>
             </div>
           </div>
-        )}
+          
+          {/* Track Clustering Opacity - Only show when track clustering is enabled */}
+          {trackClustering && (
+            <div className="space-y-2">
+              <div className="text-white text-xs font-semibold">Track Clustering</div>
+              <div className="flex items-center space-x-2">
+                <span className="text-xs text-gray-300 w-20">Cluster↔Track</span>
+                <input
+                  type="range"
+                  min="0"
+                  max="1"
+                  step="0.1"
+                  value={linkOpacities['cluster-track']}
+                  onChange={(e) => setLinkOpacities(prev => ({...prev, 'cluster-track': parseFloat(e.target.value)}))}
+                  className="w-16 h-1 bg-gray-700 rounded-lg appearance-none cursor-pointer"
+                />
+                <span className="text-xs text-gray-400 w-8">{linkOpacities['cluster-track']}</span>
+              </div>
+            </div>
+          )}
+
+          {/* Album Clustering Opacity - Only show when album clustering is enabled */}
+          {albumClustering && showAlbums && (
+            <div className="space-y-2">
+              <div className="text-white text-xs font-semibold">Album Clustering</div>
+              <div className="flex items-center space-x-2">
+                <span className="text-xs text-gray-300 w-20">Cluster↔Album</span>
+                <input
+                  type="range"
+                  min="0"
+                  max="1"
+                  step="0.1"
+                  value={linkOpacities['cluster-album']}
+                  onChange={(e) => setLinkOpacities(prev => ({...prev, 'cluster-album': parseFloat(e.target.value)}))}
+                  className="w-16 h-1 bg-gray-700 rounded-lg appearance-none cursor-pointer"
+                />
+                <span className="text-xs text-gray-400 w-8">{linkOpacities['cluster-album']}</span>
+              </div>
+            </div>
+          )}
+        </div>
       </div>
 
-      {/* Right Panel - Layer Visibility */}
-      <div className="absolute top-4 right-4 z-20 bg-gray-800 p-3 rounded-lg border border-gray-600 space-y-3">
-        <div className="text-white text-sm font-semibold mb-2">Layer Visibility</div>
-        
-        <label className="flex items-center space-x-2 text-white text-sm">
-          <input
-            type="checkbox"
-            checked={showGenres}
-            onChange={(e) => setShowGenres(e.target.checked)}
-            className="w-4 h-4 text-pink-600 bg-gray-700 border-gray-600 rounded focus:ring-pink-500 focus:ring-2"
-          />
-          <span style={{ color: '#FF10F0' }}>Genres</span>
-        </label>
-        
-        <label className="flex items-center space-x-2 text-white text-sm">
-          <input
-            type="checkbox"
-            checked={showArtists}
-            onChange={(e) => setShowArtists(e.target.checked)}
-            className="w-4 h-4 text-purple-600 bg-gray-700 border-gray-600 rounded focus:ring-purple-500 focus:ring-2"
-          />
-          <span style={{ color: '#A855F7' }}>Artists</span>
-        </label>
-        
-        <label className="flex items-center space-x-2 text-white text-sm">
-          <input
-            type="checkbox"
-            checked={showAlbums}
-            onChange={(e) => setShowAlbums(e.target.checked)}
-            className="w-4 h-4 text-green-600 bg-gray-700 border-gray-600 rounded focus:ring-green-500 focus:ring-2"
-          />
-          <span style={{ color: '#10FF80' }}>Albums</span>
-        </label>
-        
-        <label className="flex items-center space-x-2 text-white text-sm">
-          <input
-            type="checkbox"
-            checked={showTracks}
-            onChange={(e) => setShowTracks(e.target.checked)}
-            className="w-4 h-4 text-blue-600 bg-gray-700 border-gray-600 rounded focus:ring-blue-500 focus:ring-2"
-          />
-          <span style={{ color: '#0080FF' }}>Tracks</span>
-        </label>
-        
-        {/* Album Clustering - Only show when albums are visible */}
-        {showAlbums && (
-          <>
-            <div className="border-t border-gray-600 pt-2 mt-2">
-              <label className="flex items-center space-x-2 text-white text-sm">
-                <input
-                  type="checkbox"
-                  checked={albumClustering}
-                  onChange={(e) => setAlbumClustering(e.target.checked)}
-                  className="w-4 h-4 text-green-600 bg-gray-700 border-gray-600 rounded focus:ring-green-500 focus:ring-2"
-                />
-                <span>Album Clustering</span>
-              </label>
-            </div>
-            
-            {albumClustering && (
-              <div className="space-y-2">
-                <div className="flex items-center space-x-2">
-                  <span className="text-xs text-gray-300 w-20">Cluster↔Album</span>
-                  <input
-                    type="range"
-                    min="0"
-                    max="1"
-                    step="0.1"
-                    value={linkOpacities['cluster-album']}
-                    onChange={(e) => setLinkOpacities(prev => ({...prev, 'cluster-album': parseFloat(e.target.value)}))}
-                    className="w-16 h-1 bg-gray-700 rounded-lg appearance-none cursor-pointer"
-                  />
-                  <span className="text-xs text-gray-400 w-8">{linkOpacities['cluster-album']}</span>
-                </div>
-              </div>
-            )}
-          </>
-        )}
-      </div>
+
       
       <svg
         ref={svgRef}
