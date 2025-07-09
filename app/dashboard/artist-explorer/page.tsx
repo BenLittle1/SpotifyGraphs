@@ -26,6 +26,14 @@ export default function ArtistExplorerPage() {
     type: 'artist' | 'album' | 'track';
     spotifyUrl: string;
   } | null>(null);
+  
+  // Physics controls
+  const [chargeStrength, setChargeStrength] = useState(1.8);
+  const [collisionRadius, setCollisionRadius] = useState(2.0);
+  const [linkDistance, setLinkDistance] = useState(2.0);
+  const [gravity, setGravity] = useState(1.0);
+  const [nodeScale, setNodeScale] = useState(1.0);
+  const [linkOpacity, setLinkOpacity] = useState(0.4);
 
   useEffect(() => {
     if (status === 'loading') return;
@@ -228,27 +236,154 @@ export default function ArtistExplorerPage() {
             </div>
             
             <div className="space-y-4">
+              {/* Physics Controls */}
+              {graphData && !loading && (
+                <>
+                  {/* Charge Strength Slider */}
+                  <div>
+                    <label className="block text-sm font-medium text-gray-400 mb-2">
+                      Charge Strength: {chargeStrength.toFixed(2)}
+                    </label>
+                    <input
+                      type="range"
+                      min="0.2"
+                      max="2.0"
+                      step="0.1"
+                      value={chargeStrength}
+                      onChange={(e) => setChargeStrength(Number(e.target.value))}
+                      className="w-full h-2 bg-gray-700 rounded-lg appearance-none cursor-pointer slider"
+                    />
+                    <div className="flex justify-between text-xs text-gray-500 mt-1">
+                      <span>Tight</span>
+                      <span>Spread</span>
+                    </div>
+                  </div>
+
+                  {/* Collision Radius Slider */}
+                  <div>
+                    <label className="block text-sm font-medium text-gray-400 mb-2">
+                      Collision Radius: {collisionRadius.toFixed(2)}
+                    </label>
+                    <input
+                      type="range"
+                      min="0.2"
+                      max="2.0"
+                      step="0.1"
+                      value={collisionRadius}
+                      onChange={(e) => setCollisionRadius(Number(e.target.value))}
+                      className="w-full h-2 bg-gray-700 rounded-lg appearance-none cursor-pointer slider"
+                    />
+                    <div className="flex justify-between text-xs text-gray-500 mt-1">
+                      <span>Compact</span>
+                      <span>Spacious</span>
+                    </div>
+                  </div>
+
+                  {/* Link Distance Slider */}
+                  <div>
+                    <label className="block text-sm font-medium text-gray-400 mb-2">
+                      Link Distance: {linkDistance.toFixed(2)}
+                    </label>
+                    <input
+                      type="range"
+                      min="0.5"
+                      max="2.0"
+                      step="0.1"
+                      value={linkDistance}
+                      onChange={(e) => setLinkDistance(Number(e.target.value))}
+                      className="w-full h-2 bg-gray-700 rounded-lg appearance-none cursor-pointer slider"
+                    />
+                    <div className="flex justify-between text-xs text-gray-500 mt-1">
+                      <span>Close</span>
+                      <span>Far</span>
+                    </div>
+                  </div>
+
+                  {/* Gravity Slider */}
+                  <div>
+                    <label className="block text-sm font-medium text-gray-400 mb-2">
+                      Gravity: {gravity.toFixed(2)}
+                    </label>
+                    <input
+                      type="range"
+                      min="0.0"
+                      max="2.0"
+                      step="0.1"
+                      value={gravity}
+                      onChange={(e) => setGravity(Number(e.target.value))}
+                      className="w-full h-2 bg-gray-700 rounded-lg appearance-none cursor-pointer slider"
+                    />
+                    <div className="flex justify-between text-xs text-gray-500 mt-1">
+                      <span>Free Float</span>
+                      <span>Strong Pull</span>
+                    </div>
+                  </div>
+
+                  {/* Node Scale Slider */}
+                  <div>
+                    <label className="block text-sm font-medium text-gray-400 mb-2">
+                      Node Scale: {nodeScale.toFixed(2)}
+                    </label>
+                    <input
+                      type="range"
+                      min="0.5"
+                      max="2.0"
+                      step="0.1"
+                      value={nodeScale}
+                      onChange={(e) => setNodeScale(Number(e.target.value))}
+                      className="w-full h-2 bg-gray-700 rounded-lg appearance-none cursor-pointer slider"
+                    />
+                    <div className="flex justify-between text-xs text-gray-500 mt-1">
+                      <span>Small</span>
+                      <span>Large</span>
+                    </div>
+                  </div>
+
+                  {/* Link Opacity Slider */}
+                  <div>
+                    <label className="block text-sm font-medium text-gray-400 mb-2">
+                      Link Opacity: {(linkOpacity * 100).toFixed(0)}%
+                    </label>
+                    <input
+                      type="range"
+                      min="0.1"
+                      max="1.0"
+                      step="0.05"
+                      value={linkOpacity}
+                      onChange={(e) => setLinkOpacity(Number(e.target.value))}
+                      className="w-full h-2 bg-gray-700 rounded-lg appearance-none cursor-pointer slider"
+                    />
+                    <div className="flex justify-between text-xs text-gray-500 mt-1">
+                      <span>Faint</span>
+                      <span>Bold</span>
+                    </div>
+                  </div>
+
+                  {/* Divider */}
+                  <div className="border-t border-gray-700 pt-4">
+                    <h3 className="text-sm font-semibold text-gray-400 mb-3">Statistics</h3>
+                  </div>
+                </>
+              )}
+
               {/* Stats */}
               {graphData && !loading && (
-                <div className="pt-4 border-t border-gray-700">
-                  <h3 className="text-sm font-semibold text-gray-400 mb-3">Statistics</h3>
-                  <div className="space-y-2 text-sm">
-                    <div className="flex justify-between">
-                      <span className="text-gray-500">Total Nodes:</span>
-                      <span className="text-white">{graphData.nodes.length}</span>
-                    </div>
-                    <div className="flex justify-between">
-                      <span className="text-gray-500">Albums:</span>
-                      <span className="text-green-400">
-                        {graphData.nodes.filter((n: GraphNode) => n.group === 'album').length}
-                      </span>
-                    </div>
-                    <div className="flex justify-between">
-                      <span className="text-gray-500">Tracks:</span>
-                      <span className="text-blue-400">
-                        {graphData.nodes.filter((n: GraphNode) => n.group === 'track').length}
-                      </span>
-                    </div>
+                <div className="space-y-2 text-sm">
+                  <div className="flex justify-between">
+                    <span className="text-gray-500">Total Nodes:</span>
+                    <span className="text-white">{graphData.nodes.length}</span>
+                  </div>
+                  <div className="flex justify-between">
+                    <span className="text-gray-500">Albums:</span>
+                    <span className="text-green-400">
+                      {graphData.nodes.filter((n: GraphNode) => n.group === 'album').length}
+                    </span>
+                  </div>
+                  <div className="flex justify-between">
+                    <span className="text-gray-500">Tracks:</span>
+                    <span className="text-blue-400">
+                      {graphData.nodes.filter((n: GraphNode) => n.group === 'track').length}
+                    </span>
                   </div>
                 </div>
               )}
@@ -309,6 +444,12 @@ export default function ArtistExplorerPage() {
               width={window.innerWidth}
               height={window.innerHeight - 73}
               onNodeClick={handleNodeClick}
+              chargeStrength={chargeStrength}
+              collisionRadius={collisionRadius}
+              linkDistance={linkDistance}
+              gravity={gravity}
+              nodeScale={nodeScale}
+              linkOpacity={linkOpacity}
             />
           )}
         </div>

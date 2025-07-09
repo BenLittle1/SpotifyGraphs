@@ -19,9 +19,29 @@ interface ForceGraphProps {
     'album-cluster'?: string | { fill: string; stroke: string; strokeWidth?: number };
   };
   onNodeClick?: (node: GraphNode) => void;
+  // Physics controls
+  chargeStrength?: number;
+  collisionRadius?: number;
+  linkDistance?: number;
+  gravity?: number;
+  nodeScale?: number;
+  linkOpacity?: number;
 }
 
-const ForceGraph: React.FC<ForceGraphProps> = ({ data, width = 1200, height = 800, viewMode = 'network', colorScheme, onNodeClick }) => {
+const ForceGraph: React.FC<ForceGraphProps> = ({ 
+  data, 
+  width = 1200, 
+  height = 800, 
+  viewMode = 'network', 
+  colorScheme, 
+  onNodeClick,
+  chargeStrength: externalChargeStrength,
+  collisionRadius: externalCollisionRadius,
+  linkDistance: externalLinkDistance,
+  gravity: externalGravity,
+  nodeScale: externalNodeScale,
+  linkOpacity: externalLinkOpacity
+}) => {
   const svgRef = useRef<SVGSVGElement>(null);
     const [dynamicMode, setDynamicMode] = useState<boolean>(false);
   const [trackClustering, setTrackClustering] = useState<boolean>(true);
@@ -105,24 +125,37 @@ const ForceGraph: React.FC<ForceGraphProps> = ({ data, width = 1200, height = 80
     const isMedium = nodeCount <= 800;
     const isLarge = nodeCount <= 1200;
     
-    // Adjust parameters based on size
-    const linkDistance = isSmall ? 120 : isMedium ? 100 : isLarge ? 80 : 60;
-    const genreLinkDistance = isSmall ? 150 : isMedium ? 130 : isLarge ? 100 : 80;
-    const chargeStrength = isSmall ? -600 : isMedium ? -400 : isLarge ? -250 : -150;
-    const genreChargeStrength = isSmall ? -800 : isMedium ? -600 : isLarge ? -400 : -250;
-    const distanceMax = isSmall ? 500 : isMedium ? 400 : isLarge ? 300 : 200;
-    const collisionPadding = isSmall ? 10 : isMedium ? 8 : isLarge ? 6 : 4;
+    // Use external controls if provided, otherwise use dynamic defaults
+    const baseLinkDistance = isSmall ? 120 : isMedium ? 100 : isLarge ? 80 : 60;
+    const baseGenreLinkDistance = isSmall ? 150 : isMedium ? 130 : isLarge ? 100 : 80;
+    const baseChargeStrength = isSmall ? -600 : isMedium ? -400 : isLarge ? -250 : -150;
+    const baseGenreChargeStrength = isSmall ? -800 : isMedium ? -600 : isLarge ? -400 : -250;
+    const baseDistanceMax = isSmall ? 500 : isMedium ? 400 : isLarge ? 300 : 200;
+    const baseCollisionPadding = isSmall ? 10 : isMedium ? 8 : isLarge ? 6 : 4;
     const alphaDecay = isSmall ? 0.02 : isMedium ? 0.03 : isLarge ? 0.04 : 0.05;
     const velocityDecay = isSmall ? 0.3 : isMedium ? 0.35 : isLarge ? 0.4 : 0.5;
-    const linkOpacity = isSmall ? 0.2 : isMedium ? 0.15 : isLarge ? 0.1 : 0.05;
+    const baseLinkOpacity = isSmall ? 0.2 : isMedium ? 0.15 : isLarge ? 0.1 : 0.05;
     const tickFrequency = isSmall ? 1 : isMedium ? 2 : isLarge ? 2 : 3;
     const minLabelRadius = isSmall ? 10 : isMedium ? 12 : isLarge ? 15 : 18;
+
+    // Apply external controls if provided
+    const linkDistance = externalLinkDistance !== undefined ? externalLinkDistance * 60 : baseLinkDistance;
+    const genreLinkDistance = externalLinkDistance !== undefined ? externalLinkDistance * 75 : baseGenreLinkDistance;
+    const chargeStrength = externalChargeStrength !== undefined ? externalChargeStrength * -300 : baseChargeStrength;
+    const genreChargeStrength = externalChargeStrength !== undefined ? externalChargeStrength * -400 : baseGenreChargeStrength;
+    const distanceMax = externalLinkDistance !== undefined ? externalLinkDistance * 250 : baseDistanceMax;
+    const collisionPadding = externalCollisionRadius !== undefined ? externalCollisionRadius * 5 : baseCollisionPadding;
+    const linkOpacity = externalLinkOpacity !== undefined ? externalLinkOpacity : baseLinkOpacity;
+    const nodeScale = externalNodeScale !== undefined ? externalNodeScale : 1.0;
+    const gravity = externalGravity !== undefined ? externalGravity : 0.0;
 
     // Hierarchical positioning for y-axis
     const isHierarchical = viewMode === 'hierarchical';
 
     // Create force simulation with dynamic parameters
     const simulation = d3.forceSimulation<GraphNode>()
+      .force('center', d3.forceCenter(width / 2, height / 2))
+      .force('gravity', d3.forceCenter(width / 2, height / 2).strength(gravity))
       .force('link', d3.forceLink<GraphNode, GraphLink>()
         .id((d) => d.id)
         .distance((d) => {
@@ -212,16 +245,16 @@ const ForceGraph: React.FC<ForceGraphProps> = ({ data, width = 1200, height = 80
           if (isHierarchical) {
             // Use the same radius calculation as the visual nodes
             if (d.group === 'genre') {
-              radius = 30 + (d.radius || 20) * 0.5;
+              radius = (30 + (d.radius || 20) * 0.5) * nodeScale;
             } else if (d.group === 'artist') {
-              radius = Math.max(15, Math.min(30, (d.popularity || 50) / 3.3));
+              radius = Math.max(15, Math.min(30, (d.popularity || 50) / 3.3)) * nodeScale;
             } else if (d.group === 'album') {
-              radius = Math.max(12, Math.min(25, (d.popularity || 50) / 4));
+              radius = Math.max(12, Math.min(25, (d.popularity || 50) / 4)) * nodeScale;
             } else {
-              radius = Math.max(8, Math.min(15, (d.popularity || 50) / 6.7));
+              radius = Math.max(8, Math.min(15, (d.popularity || 50) / 6.7)) * nodeScale;
             }
           } else {
-            radius = d.radius || 10;
+            radius = (d.radius || 10) * nodeScale;
           }
           return radius + (isHierarchical ? collisionPadding * 0.7 : collisionPadding);
         })
@@ -747,7 +780,7 @@ const ForceGraph: React.FC<ForceGraphProps> = ({ data, width = 1200, height = 80
       .attr('fill', (d) => colorScale[d.group].fill)
       .attr('stroke', (d) => colorScale[d.group].stroke)
       .attr('stroke-width', (d) => colorScale[d.group].strokeWidth)
-      .attr('stroke-opacity', 0.8)
+      .attr('stroke-opacity', linkOpacity)
       .style('filter', 'url(#glow)');
 
     // Add labels with dynamic visibility
@@ -759,16 +792,16 @@ const ForceGraph: React.FC<ForceGraphProps> = ({ data, width = 1200, height = 80
         let radius;
         if (isHierarchical) {
           if (d.group === 'genre') {
-            radius = 30 + (d.radius || 20) * 0.5;
+            radius = (30 + (d.radius || 20) * 0.5) * nodeScale;
           } else if (d.group === 'artist') {
-            radius = Math.max(15, Math.min(30, (d.popularity || 50) / 3.3));
+            radius = Math.max(15, Math.min(30, (d.popularity || 50) / 3.3)) * nodeScale;
           } else if (d.group === 'album') {
-            radius = Math.max(12, Math.min(25, (d.popularity || 50) / 4));
+            radius = Math.max(12, Math.min(25, (d.popularity || 50) / 4)) * nodeScale;
           } else {
-            radius = Math.max(8, Math.min(15, (d.popularity || 50) / 6.7));
+            radius = Math.max(8, Math.min(15, (d.popularity || 50) / 6.7)) * nodeScale;
           }
         } else {
-          radius = d.radius || 10;
+          radius = (d.radius || 10) * nodeScale;
         }
         return radius + 15;
       })
@@ -883,16 +916,16 @@ const ForceGraph: React.FC<ForceGraphProps> = ({ data, width = 1200, height = 80
           let baseRadius;
           if (isHierarchical) {
             if (nodeData.group === 'genre') {
-              baseRadius = 30 + (nodeData.radius || 20) * 0.5;
+              baseRadius = (30 + (nodeData.radius || 20) * 0.5) * nodeScale;
             } else if (nodeData.group === 'artist') {
-              baseRadius = Math.max(15, Math.min(30, (nodeData.popularity || 50) / 3.3));
+              baseRadius = Math.max(15, Math.min(30, (nodeData.popularity || 50) / 3.3)) * nodeScale;
             } else if (nodeData.group === 'album') {
-              baseRadius = Math.max(12, Math.min(25, (nodeData.popularity || 50) / 4));
+              baseRadius = Math.max(12, Math.min(25, (nodeData.popularity || 50) / 4)) * nodeScale;
             } else {
-              baseRadius = Math.max(8, Math.min(15, (nodeData.popularity || 50) / 6.7));
+              baseRadius = Math.max(8, Math.min(15, (nodeData.popularity || 50) / 6.7)) * nodeScale;
             }
           } else {
-            baseRadius = nodeData.radius || 10;
+            baseRadius = (nodeData.radius || 10) * nodeScale;
           }
           
           // Apply dynamic scaling if dynamic mode is enabled
@@ -917,8 +950,8 @@ const ForceGraph: React.FC<ForceGraphProps> = ({ data, width = 1200, height = 80
 
       // Highlight vertical links only
       link.attr('stroke-opacity', (linkData: any, i: number) => {
-        if (verticalLinks.has(i.toString())) return 0.8; // Highlight vertical links
-        return 0.1; // Dim other links
+        if (verticalLinks.has(i.toString())) return linkOpacity; // Highlight vertical links
+        return linkOpacity * 0.125; // Dim other links
       })
       .attr('stroke-width', (linkData: any, i: number) => {
         if (verticalLinks.has(i.toString())) {
