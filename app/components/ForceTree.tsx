@@ -201,7 +201,7 @@ const ForceTree: React.FC<ForceTreeProps> = ({
 
     const genreSizeScale = d3.scaleLinear()
       .domain([0, d3.max(data.nodes.filter(n => n.type === 'genre'), d => d.value) || 1000])
-      .range([20, 40]);
+      .range([25, 50]); // Increased from [20, 40] to make genre bubbles larger
 
     // Create force simulation
     const simulation = d3.forceSimulation<ForceTreeNode>()
@@ -247,7 +247,7 @@ const ForceTree: React.FC<ForceTreeProps> = ({
           }
           
           const baseRadius = d.type === 'genre' ? 
-            genreSizeScale(d.value) + 10 : 
+            genreSizeScale(d.value) + 15 : // Increased from +10 to +15 for larger genre bubbles
             d.type === 'album' ?
             sizeScale(d.popularity || 50) + 8 :
             sizeScale(d.popularity || 50) + 5;
@@ -855,7 +855,7 @@ const ForceTree: React.FC<ForceTreeProps> = ({
 
     const genreSizeScale = d3.scaleLinear()
       .domain([0, d3.max(data.nodes.filter(n => n.type === 'genre'), d => d.value) || 1000])
-      .range([20, 40]);
+      .range([25, 50]);
 
     g.selectAll('.node circle')
       .attr('r', (d: any) => {
@@ -882,6 +882,17 @@ const ForceTree: React.FC<ForceTreeProps> = ({
           return d.type === 'track' ? 0.015 : 0.04; // Tracks even dimmer at 1.5% opacity
         }
         return 0.8;
+      })
+      .attr('stroke-opacity', (d: any) => {
+        // Apply hover opacity for stroke (outline) of non-highlighted nodes
+        if (hoveredNode && (downstreamNodes.size > 0 || upstreamNodes.size > 0)) {
+          const allVerticalNodes = new Set([hoveredNode.id, ...Array.from(downstreamNodes), ...Array.from(upstreamNodes)]);
+          const isRelevant = allVerticalNodes.has(d.id);
+          if (isRelevant) return 1;
+          // Make non-highlighted node outlines almost invisible
+          return d.type === 'track' ? 0.01 : 0.03; // Track outlines even less visible
+        }
+        return 1; // Full opacity when not hovering
       })
       .attr('stroke-width', (d: any) => expandedNodes.has(d.id) ? 4 : 2)
       .attr('stroke', (d: any) => {
@@ -930,7 +941,7 @@ const ForceTree: React.FC<ForceTreeProps> = ({
       .force('collision', d3.forceCollide<ForceTreeNode>()
         .radius((d: any) => {
           const baseRadius = d.type === 'genre' ? 
-            genreSizeScale(d.value) + 10 : 
+            genreSizeScale(d.value) + 15 : // Increased from +10 to +15 for larger genre bubbles
             sizeScale(d.popularity || 50) + 5;
           return baseRadius * collisionRadius * nodeScale;
         }));
