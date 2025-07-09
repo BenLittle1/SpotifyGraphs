@@ -36,6 +36,9 @@ const ForceTree: React.FC<ForceTreeProps> = ({
   const transformRef = useRef<any>(null);
   const [hoveredNode, setHoveredNode] = useState<ForceTreeNode | null>(null);
   const [selectedNode, setSelectedNode] = useState<ForceTreeNode | null>(null);
+  const [clickedNode, setClickedNode] = useState<ForceTreeNode | null>(null); // For click-based extreme dimming
+  const [clickedDownstream, setClickedDownstream] = useState<Set<string>>(new Set());
+  const [clickedUpstream, setClickedUpstream] = useState<Set<string>>(new Set());
   const [downstreamNodes, setDownstreamNodes] = useState<Set<string>>(new Set());
   const [upstreamNodes, setUpstreamNodes] = useState<Set<string>>(new Set());
   const [expandedNodes, setExpandedNodes] = useState<Set<string>>(new Set());
@@ -176,6 +179,13 @@ const ForceTree: React.FC<ForceTreeProps> = ({
       });
 
     svg.call(zoom);
+
+    // Clear clicked node when clicking on empty space
+    svg.on('click', function() {
+      setClickedNode(null);
+      setClickedDownstream(new Set());
+      setClickedUpstream(new Set());
+    });
 
     // Restore previous transform if it exists
     if (transformRef.current) {
@@ -682,16 +692,22 @@ const ForceTree: React.FC<ForceTreeProps> = ({
       .on('click', function(event, d) {
         event.stopPropagation();
         
-        // Toggle expansion state
-        setExpandedNodes(prev => {
-          const newExpanded = new Set(prev);
-          if (newExpanded.has(d.id)) {
-            newExpanded.delete(d.id);
-          } else {
-            newExpanded.add(d.id);
-          }
-          return newExpanded;
-        });
+        // Toggle clicked node for extreme dimming
+        if (clickedNode && clickedNode.id === d.id) {
+          // Clicking the same node clears the selection
+          setClickedNode(null);
+          setClickedDownstream(new Set());
+          setClickedUpstream(new Set());
+        } else {
+          // Set new clicked node and find its hierarchy
+          const { parents, children } = findVerticalNodes(d.id);
+          setClickedNode(d);
+          setClickedDownstream(children);
+          setClickedUpstream(parents);
+        }
+        
+        // Don't expand/collapse when clicking
+        // Remove the expansion toggle to prevent node movement
         
         // Shift+click opens in Spotify
         if (event.shiftKey && d.spotifyUrl) {
@@ -758,77 +774,114 @@ const ForceTree: React.FC<ForceTreeProps> = ({
     const simulation = simulationRef.current;
 
     // Bring highlighted elements to front
-    if (hoveredNode && (downstreamNodes.size > 0 || upstreamNodes.size > 0)) {
-      const allVerticalNodes = new Set([hoveredNode.id, ...Array.from(downstreamNodes), ...Array.from(upstreamNodes)]);
+    if ((hoveredNode && (downstreamNodes.size > 0 || upstreamNodes.size > 0)) || 
+        (clickedNode && (clickedDownstream.size > 0 || clickedUpstream.size > 0))) {
       
-      // Move highlighted links to front
-      g.selectAll('.link').each((l: any, i: number, nodes: any[]) => {
-        const sourceId = typeof l.source === 'string' ? l.source : (l.source as any).id;
-        const targetId = typeof l.target === 'string' ? l.target : (l.target as any).id;
+      // Determine which nodes to highlight based on click or hover
+      const highlightNode = clickedNode || hoveredNode;
+      const highlightDownstream = clickedNode ? clickedDownstream : downstreamNodes;
+      const highlightUpstream = clickedNode ? clickedUpstream : upstreamNodes;
+      
+      if (highlightNode) {
+        const allVerticalNodes = new Set([highlightNode.id, ...Array.from(highlightDownstream), ...Array.from(highlightUpstream)]);
         
-        // Only highlight hierarchical links
-        if (l.type === 'genre-artist' || l.type === 'artist-album' || l.type === 'album-track' || l.type === 'artist-track') {
-          const isVerticalLink = allVerticalNodes.has(sourceId) && allVerticalNodes.has(targetId);
+        // Move highlighted links to front
+        g.selectAll('.link').each((l: any, i: number, nodes: any[]) => {
+          const sourceId = typeof l.source === 'string' ? l.source : (l.source as any).id;
+          const targetId = typeof l.target === 'string' ? l.target : (l.target as any).id;
           
-          if (isVerticalLink) {
-            // Move this link to the front by re-appending it
-            const linkElement = d3.select(nodes[i]);
-            const parent = linkElement.node()?.parentNode;
-            if (parent) {
-              parent.appendChild(linkElement.node()!);
+          // Only highlight hierarchical links
+          if (l.type === 'genre-artist' || l.type === 'artist-album' || l.type === 'album-track' || l.type === 'artist-track') {
+            const isVerticalLink = allVerticalNodes.has(sourceId) && allVerticalNodes.has(targetId);
+            
+            if (isVerticalLink) {
+              // Move this link to the front by re-appending it
+              const linkElement = d3.select(nodes[i]);
+              const parent = linkElement.node()?.parentNode;
+              if (parent) {
+                parent.appendChild(linkElement.node()!);
+              }
             }
           }
-        }
-      });
-      
-      // Move highlighted nodes to front
-      g.selectAll('.node').each((d: any, i: number, nodes: any[]) => {
-        if (allVerticalNodes.has(d.id)) {
-          // Move this node to the front by re-appending it
-          const nodeElement = d3.select(nodes[i]);
-          const parent = nodeElement.node()?.parentNode;
-          if (parent) {
-            parent.appendChild(nodeElement.node()!);
+        });
+        
+        // Move highlighted nodes to front
+        g.selectAll('.node').each((d: any, i: number, nodes: any[]) => {
+          if (allVerticalNodes.has(d.id)) {
+            // Move this node to the front by re-appending it
+            const nodeElement = d3.select(nodes[i]);
+            const parent = nodeElement.node()?.parentNode;
+            if (parent) {
+              parent.appendChild(nodeElement.node()!);
+            }
           }
-        }
-      });
+        });
+      }
     }
 
     // Update link opacity - apply hover state for vertical relationships only
     g.selectAll('.link')
       .attr('stroke-opacity', (l: any) => {
-        // Only apply hover effects if we're currently hovering
-        if (hoveredNode && (downstreamNodes.size > 0 || upstreamNodes.size > 0)) {
-          const sourceId = typeof l.source === 'string' ? l.source : (l.source as any).id;
-          const targetId = typeof l.target === 'string' ? l.target : (l.target as any).id;
-          
-          // Only highlight hierarchical links (genre-artist, artist-album, album-track, artist-track)
+        const sourceId = typeof l.source === 'string' ? l.source : (l.source as any).id;
+        const targetId = typeof l.target === 'string' ? l.target : (l.target as any).id;
+        
+        // First check if we have a clicked node (extreme dimming)
+        if (clickedNode && (clickedDownstream.size > 0 || clickedUpstream.size > 0)) {
+          // Only highlight hierarchical links
           if (l.type === 'genre-artist' || l.type === 'artist-album' || l.type === 'album-track' || l.type === 'artist-track') {
-            const allVerticalNodes = new Set([hoveredNode.id, ...Array.from(downstreamNodes), ...Array.from(upstreamNodes)]);
+            const allClickedNodes = new Set([clickedNode.id, ...Array.from(clickedDownstream), ...Array.from(clickedUpstream)]);
+            const isClickedLink = allClickedNodes.has(sourceId) && allClickedNodes.has(targetId);
             
-            // Check if this link connects nodes in the vertical hierarchy
-            const isVerticalLink = allVerticalNodes.has(sourceId) && allVerticalNodes.has(targetId);
-            
-            if (isVerticalLink) return 0.8;
-            // Make links to tracks (outer ring) even less visible
+            if (isClickedLink) return 0.8;
+            // Extreme dimming for non-clicked links
             const sourceNode = data.nodes.find(n => n.id === sourceId);
             const targetNode = data.nodes.find(n => n.id === targetId);
             if (sourceNode?.type === 'track' || targetNode?.type === 'track') {
-              return 0.005; // Track links even dimmer at 0.5% opacity
+              return 0.005; // Track links almost invisible
             }
             return 0.01;
           }
-          
-          return 0.01; // Dim clustering links during hover
+          return 0.01; // Dim clustering links
+        }
+        // Then check hover (moderate dimming)
+        else if (hoveredNode && (downstreamNodes.size > 0 || upstreamNodes.size > 0)) {
+          // Only highlight hierarchical links
+          if (l.type === 'genre-artist' || l.type === 'artist-album' || l.type === 'album-track' || l.type === 'artist-track') {
+            const allVerticalNodes = new Set([hoveredNode.id, ...Array.from(downstreamNodes), ...Array.from(upstreamNodes)]);
+            const isVerticalLink = allVerticalNodes.has(sourceId) && allVerticalNodes.has(targetId);
+            
+            if (isVerticalLink) return 0.8;
+            // Moderate dimming for hover
+            return 0.3; // More visible than clicked state
+          }
+          return 0.3; // Moderate dimming for clustering links
         }
         return linkOpacity;
       })
       .attr('stroke', (l: any) => {
-        // Only apply hover colors if we're currently hovering
-        if (hoveredNode && (downstreamNodes.size > 0 || upstreamNodes.size > 0)) {
-          const sourceId = typeof l.source === 'string' ? l.source : (l.source as any).id;
-          const targetId = typeof l.target === 'string' ? l.target : (l.target as any).id;
-          
+        const sourceId = typeof l.source === 'string' ? l.source : (l.source as any).id;
+        const targetId = typeof l.target === 'string' ? l.target : (l.target as any).id;
+        
+        // First check if we have a clicked node
+        if (clickedNode && (clickedDownstream.size > 0 || clickedUpstream.size > 0)) {
+          // Only highlight hierarchical links
+          if (l.type === 'genre-artist' || l.type === 'artist-album' || l.type === 'album-track' || l.type === 'artist-track') {
+            const allClickedNodes = new Set([clickedNode.id, ...Array.from(clickedDownstream), ...Array.from(clickedUpstream)]);
+            
+            if (allClickedNodes.has(sourceId) && allClickedNodes.has(targetId)) {
+              const sourceNode = data.nodes.find(n => n.id === sourceId);
+              const nodeColors: { [key: string]: string } = {
+                genre: '#ff00ff',
+                artist: '#A855F7',
+                album: '#10FF80',
+                track: '#0080FF'
+              };
+              return sourceNode ? nodeColors[sourceNode.type as string] || '#444' : '#444';
+            }
+          }
+        }
+        // Then check hover
+        else if (hoveredNode && (downstreamNodes.size > 0 || upstreamNodes.size > 0)) {
           // Only highlight hierarchical links
           if (l.type === 'genre-artist' || l.type === 'artist-album' || l.type === 'album-track' || l.type === 'artist-track') {
             const allVerticalNodes = new Set([hoveredNode.id, ...Array.from(downstreamNodes), ...Array.from(upstreamNodes)]);
@@ -873,26 +926,42 @@ const ForceTree: React.FC<ForceTreeProps> = ({
         return baseRadius * nodeScale;
       })
       .attr('fill-opacity', (d: any) => {
-        // Apply hover opacity for vertical relationships only
-        if (hoveredNode && (downstreamNodes.size > 0 || upstreamNodes.size > 0)) {
+        // First check if we have a clicked node (extreme dimming)
+        if (clickedNode && (clickedDownstream.size > 0 || clickedUpstream.size > 0)) {
+          const allClickedNodes = new Set([clickedNode.id, ...Array.from(clickedDownstream), ...Array.from(clickedUpstream)]);
+          const isRelevant = allClickedNodes.has(d.id);
+          if (isRelevant) return 1;
+          // Extreme dimming for non-clicked nodes
+          return d.type === 'track' ? 0.015 : 0.04;
+        }
+        // Then check hover (moderate dimming)
+        else if (hoveredNode && (downstreamNodes.size > 0 || upstreamNodes.size > 0)) {
           const allVerticalNodes = new Set([hoveredNode.id, ...Array.from(downstreamNodes), ...Array.from(upstreamNodes)]);
           const isRelevant = allVerticalNodes.has(d.id);
           if (isRelevant) return 1;
-          // Make track nodes (outer ring) even less visible when not highlighted
-          return d.type === 'track' ? 0.015 : 0.04; // Tracks even dimmer at 1.5% opacity
+          // Moderate dimming for hover
+          return 0.4; // More visible than clicked state
         }
         return 0.8;
       })
       .attr('stroke-opacity', (d: any) => {
-        // Apply hover opacity for stroke (outline) of non-highlighted nodes
-        if (hoveredNode && (downstreamNodes.size > 0 || upstreamNodes.size > 0)) {
+        // First check if we have a clicked node (extreme dimming)
+        if (clickedNode && (clickedDownstream.size > 0 || clickedUpstream.size > 0)) {
+          const allClickedNodes = new Set([clickedNode.id, ...Array.from(clickedDownstream), ...Array.from(clickedUpstream)]);
+          const isRelevant = allClickedNodes.has(d.id);
+          if (isRelevant) return 1;
+          // Extreme dimming for non-clicked node outlines
+          return d.type === 'track' ? 0.01 : 0.03;
+        }
+        // Then check hover (moderate dimming)
+        else if (hoveredNode && (downstreamNodes.size > 0 || upstreamNodes.size > 0)) {
           const allVerticalNodes = new Set([hoveredNode.id, ...Array.from(downstreamNodes), ...Array.from(upstreamNodes)]);
           const isRelevant = allVerticalNodes.has(d.id);
           if (isRelevant) return 1;
-          // Make non-highlighted node outlines almost invisible
-          return d.type === 'track' ? 0.01 : 0.03; // Track outlines even less visible
+          // Moderate dimming for hover
+          return 0.5; // More visible than clicked state
         }
-        return 1; // Full opacity when not hovering
+        return 1; // Full opacity when not hovering or clicked
       })
       .attr('stroke-width', (d: any) => expandedNodes.has(d.id) ? 4 : 2)
       .attr('stroke', (d: any) => {
@@ -911,13 +980,21 @@ const ForceTree: React.FC<ForceTreeProps> = ({
     // Update text opacity
     g.selectAll('.node text')
       .attr('opacity', (d: any) => {
-        // Apply hover opacity for vertical relationships only
-        if (hoveredNode && (downstreamNodes.size > 0 || upstreamNodes.size > 0)) {
+        // First check if we have a clicked node (extreme dimming)
+        if (clickedNode && (clickedDownstream.size > 0 || clickedUpstream.size > 0)) {
+          const allClickedNodes = new Set([clickedNode.id, ...Array.from(clickedDownstream), ...Array.from(clickedUpstream)]);
+          const isRelevant = allClickedNodes.has(d.id);
+          if (isRelevant) return 1;
+          // Extreme dimming for non-clicked text
+          return d.type === 'track' ? 0.005 : 0.02;
+        }
+        // Then check hover (moderate dimming)
+        else if (hoveredNode && (downstreamNodes.size > 0 || upstreamNodes.size > 0)) {
           const allVerticalNodes = new Set([hoveredNode.id, ...Array.from(downstreamNodes), ...Array.from(upstreamNodes)]);
           const isRelevant = allVerticalNodes.has(d.id);
           if (isRelevant) return 1;
-          // Make track text (outer ring) even less visible when not highlighted
-          return d.type === 'track' ? 0.005 : 0.02; // Track text even dimmer at 0.5% opacity
+          // Moderate dimming for hover
+          return d.type === 'track' ? 0.4 : 0.5; // More visible than clicked state
         }
         return d.type === 'track' ? 0.7 : 1;
       });
@@ -974,7 +1051,7 @@ const ForceTree: React.FC<ForceTreeProps> = ({
       simulation.alpha(0.3).restart();
     }
 
-  }, [chargeStrength, collisionRadius, linkDistance, gravity, nodeScale, linkOpacity, data, width, height, expandedNodes, downstreamNodes, upstreamNodes, hoveredNode, dynamicMode, linkOpacities, trackClustering, artistClustering, albumClustering]);
+  }, [chargeStrength, collisionRadius, linkDistance, gravity, nodeScale, linkOpacity, data, width, height, expandedNodes, downstreamNodes, upstreamNodes, hoveredNode, dynamicMode, linkOpacities, trackClustering, artistClustering, albumClustering, clickedNode, clickedDownstream, clickedUpstream]);
 
   // Handle cluster expansion effect
   useEffect(() => {
