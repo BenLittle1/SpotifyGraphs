@@ -195,6 +195,25 @@ const ForceGraph: React.FC<ForceGraphProps> = ({ data, width = 1200, height = 80
       .alphaDecay(alphaDecay)
       .velocityDecay(velocityDecay);
 
+    // Filter nodes based on visibility settings
+    const visibleNodeIds = new Set<string>();
+    data.nodes.forEach(node => {
+      if (node.invisible) {
+        visibleNodeIds.add(node.id); // Always include invisible nodes for physics
+      } else if (node.group === 'genre' && showGenres) {
+        visibleNodeIds.add(node.id);
+      } else if (node.group === 'artist' && showArtists) {
+        visibleNodeIds.add(node.id);
+      } else if (node.group === 'album' && showAlbums) {
+        visibleNodeIds.add(node.id);
+      } else if (node.group === 'track' && showTracks) {
+        visibleNodeIds.add(node.id);
+      }
+    });
+
+    // Filter nodes based on visibility
+    const filteredNodes = data.nodes.filter(node => visibleNodeIds.has(node.id));
+
     // Add center force for non-hierarchical view
     if (!isHierarchical) {
       simulation.force('center', d3.forceCenter(width / 2, height / 2));
@@ -335,22 +354,6 @@ const ForceGraph: React.FC<ForceGraphProps> = ({ data, width = 1200, height = 80
       simulation.force('center', d3.forceCenter(width / 2, height / 2).strength(0.02));
     }
 
-    // Filter nodes based on visibility settings
-    const visibleNodeIds = new Set<string>();
-    data.nodes.forEach(node => {
-      if (node.invisible) {
-        visibleNodeIds.add(node.id); // Always include invisible nodes for physics
-      } else if (node.group === 'genre' && showGenres) {
-        visibleNodeIds.add(node.id);
-      } else if (node.group === 'artist' && showArtists) {
-        visibleNodeIds.add(node.id);
-      } else if (node.group === 'album' && showAlbums) {
-        visibleNodeIds.add(node.id);
-      } else if (node.group === 'track' && showTracks) {
-        visibleNodeIds.add(node.id);
-      }
-    });
-
     // Filter links based on clustering settings and node visibility
     const filteredLinks = data.links.filter(link => {
       const sourceId = typeof link.source === 'string' ? link.source : (link.source as any).id;
@@ -374,9 +377,6 @@ const ForceGraph: React.FC<ForceGraphProps> = ({ data, width = 1200, height = 80
       
       return true;
     });
-    
-    // Filter nodes based on visibility
-    const filteredNodes = data.nodes.filter(node => visibleNodeIds.has(node.id));
 
     // Create links with dynamic opacity
     const link = container.append('g')
