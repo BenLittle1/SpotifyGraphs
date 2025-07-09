@@ -772,10 +772,17 @@ const ForceTree: React.FC<ForceTreeProps> = ({
             // Check if this link connects nodes in the vertical hierarchy
             const isVerticalLink = allVerticalNodes.has(sourceId) && allVerticalNodes.has(targetId);
             
-            return isVerticalLink ? 0.8 : 0.01; // Reduced from 0.02 to 0.01 for even dimmer non-highlighted links
+            if (isVerticalLink) return 0.8;
+            // Make links to tracks (outer ring) even less visible
+            const sourceNode = data.nodes.find(n => n.id === sourceId);
+            const targetNode = data.nodes.find(n => n.id === targetId);
+            if (sourceNode?.type === 'track' || targetNode?.type === 'track') {
+              return 0.005; // Track links even dimmer at 0.5% opacity
+            }
+            return 0.01;
           }
           
-          return 0.01; // Reduced from 0.02 to 0.01 - dim clustering links during hover even more
+          return 0.01; // Dim clustering links during hover
         }
         return linkOpacity;
       })
@@ -833,7 +840,9 @@ const ForceTree: React.FC<ForceTreeProps> = ({
         if (hoveredNode && (downstreamNodes.size > 0 || upstreamNodes.size > 0)) {
           const allVerticalNodes = new Set([hoveredNode.id, ...Array.from(downstreamNodes), ...Array.from(upstreamNodes)]);
           const isRelevant = allVerticalNodes.has(d.id);
-          return isRelevant ? 1 : 0.04; // Reduced from 0.08 to 0.04 for much dimmer non-highlighted nodes
+          if (isRelevant) return 1;
+          // Make track nodes (outer ring) even less visible when not highlighted
+          return d.type === 'track' ? 0.015 : 0.04; // Tracks even dimmer at 1.5% opacity
         }
         return 0.8;
       })
@@ -859,7 +868,8 @@ const ForceTree: React.FC<ForceTreeProps> = ({
           const allVerticalNodes = new Set([hoveredNode.id, ...Array.from(downstreamNodes), ...Array.from(upstreamNodes)]);
           const isRelevant = allVerticalNodes.has(d.id);
           if (isRelevant) return 1;
-          return d.type === 'track' ? 0.01 : 0.02; // Reduced from 0.03/0.06 to 0.01/0.02 for much dimmer text
+          // Make track text (outer ring) even less visible when not highlighted
+          return d.type === 'track' ? 0.005 : 0.02; // Track text even dimmer at 0.5% opacity
         }
         return d.type === 'track' ? 0.7 : 1;
       });
