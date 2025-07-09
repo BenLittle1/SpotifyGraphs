@@ -111,54 +111,61 @@ const ForceGraph: React.FC<ForceGraphProps> = ({
           const baseCollisionPadding = isSmall ? 10 : isMedium ? 8 : isLarge ? 6 : 4;
           const collisionPadding = externalCollisionRadius !== undefined ? externalCollisionRadius * 5 : baseCollisionPadding;
           
+          const currentNodeScale = externalNodeScale !== undefined ? externalNodeScale : 1.0;
+          const currentCollisionPadding = externalCollisionRadius !== undefined ? externalCollisionRadius * 5 : baseCollisionPadding;
+          
           let radius;
           if (d.group === 'genre') {
-            radius = (30 + (d.radius || 20) * 0.5) * nodeScale;
+            radius = (30 + (d.radius || 20) * 0.5) * currentNodeScale;
           } else if (d.group === 'artist') {
-            radius = Math.max(15, Math.min(30, (d.popularity || 50) / 3.3)) * nodeScale;
+            radius = Math.max(15, Math.min(30, (d.popularity || 50) / 3.3)) * currentNodeScale;
           } else if (d.group === 'album') {
-            radius = Math.max(12, Math.min(25, (d.popularity || 50) / 4)) * nodeScale;
+            radius = Math.max(12, Math.min(25, (d.popularity || 50) / 4)) * currentNodeScale;
           } else {
-            radius = Math.max(8, Math.min(15, (d.popularity || 50) / 6.7)) * nodeScale;
+            radius = Math.max(8, Math.min(15, (d.popularity || 50) / 6.7)) * currentNodeScale;
           }
-          return radius + collisionPadding;
+          return radius + currentCollisionPadding;
         })
         .strength(0.7));
 
-      simulation.force('gravity', d3.forceCenter(width / 2, height / 2).strength(gravity));
+      const currentGravity = externalGravity !== undefined ? externalGravity : 0.0;
+      simulation.force('gravity', d3.forceCenter(width / 2, height / 2).strength(currentGravity));
       
       // Restart simulation to apply changes
       simulation.alpha(0.3).restart();
     }
-  }, [externalChargeStrength, externalCollisionRadius, externalGravity, externalNodeScale, data.nodes.length, width, height, gravity, nodeScale]);
+  }, [externalChargeStrength, externalCollisionRadius, externalGravity, externalNodeScale, data.nodes.length, width, height]);
 
   // Update link opacity in real-time
   useEffect(() => {
     if (svgRef.current) {
       const svg = d3.select(svgRef.current);
       svg.selectAll('.link')
-        .attr('stroke-opacity', linkOpacity);
+        .attr('stroke-opacity', externalLinkOpacity || 0.4);
     }
-  }, [linkOpacity]);
+  }, [externalLinkOpacity]);
 
   // Update node scale in real-time
   useEffect(() => {
     if (svgRef.current) {
+      const currentNodeScale = externalNodeScale !== undefined ? externalNodeScale : 1.0;
+      const isHierarchical = viewMode === 'hierarchical';
+      
       const svg = d3.select(svgRef.current);
       svg.selectAll('circle')
         .attr('r', (d: any) => {
           if (isHierarchical) {
             if (d.group === 'genre') {
-              return (30 + (d.radius || 20) * 0.5) * nodeScale;
+              return (30 + (d.radius || 20) * 0.5) * currentNodeScale;
             } else if (d.group === 'artist') {
-              return Math.max(15, Math.min(30, (d.popularity || 50) / 3.3)) * nodeScale;
+              return Math.max(15, Math.min(30, (d.popularity || 50) / 3.3)) * currentNodeScale;
             } else if (d.group === 'album') {
-              return Math.max(12, Math.min(25, (d.popularity || 50) / 4)) * nodeScale;
+              return Math.max(12, Math.min(25, (d.popularity || 50) / 4)) * currentNodeScale;
             } else {
-              return Math.max(8, Math.min(15, (d.popularity || 50) / 6.7)) * nodeScale;
+              return Math.max(8, Math.min(15, (d.popularity || 50) / 6.7)) * currentNodeScale;
             }
           }
-          return (d.radius || 10) * nodeScale;
+          return (d.radius || 10) * currentNodeScale;
         });
       
       // Update text positions for scaled nodes
@@ -167,21 +174,21 @@ const ForceGraph: React.FC<ForceGraphProps> = ({
           let radius;
           if (isHierarchical) {
             if (d.group === 'genre') {
-              radius = (30 + (d.radius || 20) * 0.5) * nodeScale;
+              radius = (30 + (d.radius || 20) * 0.5) * currentNodeScale;
             } else if (d.group === 'artist') {
-              radius = Math.max(15, Math.min(30, (d.popularity || 50) / 3.3)) * nodeScale;
+              radius = Math.max(15, Math.min(30, (d.popularity || 50) / 3.3)) * currentNodeScale;
             } else if (d.group === 'album') {
-              radius = Math.max(12, Math.min(25, (d.popularity || 50) / 4)) * nodeScale;
+              radius = Math.max(12, Math.min(25, (d.popularity || 50) / 4)) * currentNodeScale;
             } else {
-              radius = Math.max(8, Math.min(15, (d.popularity || 50) / 6.7)) * nodeScale;
+              radius = Math.max(8, Math.min(15, (d.popularity || 50) / 6.7)) * currentNodeScale;
             }
           } else {
-            radius = (d.radius || 10) * nodeScale;
+            radius = (d.radius || 10) * currentNodeScale;
           }
           return radius + 15;
         });
     }
-  }, [nodeScale, isHierarchical]);
+  }, [externalNodeScale, viewMode]);
 
   useEffect(() => {
     if (!svgRef.current || !data.nodes.length) return;
@@ -272,14 +279,13 @@ const ForceGraph: React.FC<ForceGraphProps> = ({
 
     // Create force simulation with dynamic parameters
     const simulation = d3.forceSimulation<GraphNode>()
-    simulationRef.current = simulation;
       .force('center', d3.forceCenter(width / 2, height / 2))
       .force('gravity', d3.forceCenter(width / 2, height / 2).strength(gravity))
       .force('link', d3.forceLink<GraphNode, GraphLink>()
         .id((d) => d.id)
         .distance((d) => {
-          const source = filteredNodes.find(n => n.id === (d.source as any).id || n.id === d.source);
-          const target = filteredNodes.find(n => n.id === (d.target as any).id || n.id === d.target);
+          const source = data.nodes.find(n => n.id === (d.source as any).id || n.id === d.source);
+          const target = data.nodes.find(n => n.id === (d.target as any).id || n.id === d.target);
           
           if (isHierarchical) {
             // Radial distances for circular clustering
@@ -302,8 +308,8 @@ const ForceGraph: React.FC<ForceGraphProps> = ({
         })
         .strength((d) => {
           if (isHierarchical) {
-            const source = filteredNodes.find(n => n.id === (d.source as any).id || n.id === d.source);
-            const target = filteredNodes.find(n => n.id === (d.target as any).id || n.id === d.target);
+            const source = data.nodes.find(n => n.id === (d.source as any).id || n.id === d.source);
+            const target = data.nodes.find(n => n.id === (d.target as any).id || n.id === d.target);
             
             // Strong attraction for parent-child relationships
             if ((source?.group === 'genre' && target?.group === 'artist') ||
@@ -381,6 +387,9 @@ const ForceGraph: React.FC<ForceGraphProps> = ({
         .iterations(isSmall ? 2 : 1))
       .alphaDecay(alphaDecay)
       .velocityDecay(velocityDecay);
+
+    // Store simulation reference
+    simulationRef.current = simulation;
 
     // Filter nodes based on visibility settings
     const visibleNodeIds = new Set<string>();
