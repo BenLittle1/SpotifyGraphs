@@ -762,7 +762,7 @@ const ForceTree: React.FC<ForceTreeProps> = ({
       const allVerticalNodes = new Set([hoveredNode.id, ...Array.from(downstreamNodes), ...Array.from(upstreamNodes)]);
       
       // Move highlighted links to front
-      g.selectAll('.link').each(function(l: any) {
+      g.selectAll('.link').each((l: any, i: number, nodes: any[]) => {
         const sourceId = typeof l.source === 'string' ? l.source : (l.source as any).id;
         const targetId = typeof l.target === 'string' ? l.target : (l.target as any).id;
         
@@ -772,7 +772,7 @@ const ForceTree: React.FC<ForceTreeProps> = ({
           
           if (isVerticalLink) {
             // Move this link to the front by re-appending it
-            const linkElement = d3.select(this);
+            const linkElement = d3.select(nodes[i]);
             const parent = linkElement.node()?.parentNode;
             if (parent) {
               parent.appendChild(linkElement.node()!);
@@ -782,10 +782,10 @@ const ForceTree: React.FC<ForceTreeProps> = ({
       });
       
       // Move highlighted nodes to front
-      g.selectAll('.node').each(function(d: any) {
+      g.selectAll('.node').each((d: any, i: number, nodes: any[]) => {
         if (allVerticalNodes.has(d.id)) {
           // Move this node to the front by re-appending it
-          const nodeElement = d3.select(this);
+          const nodeElement = d3.select(nodes[i]);
           const parent = nodeElement.node()?.parentNode;
           if (parent) {
             parent.appendChild(nodeElement.node()!);
