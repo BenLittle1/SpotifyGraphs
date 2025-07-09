@@ -852,9 +852,9 @@ const ForceTree: React.FC<ForceTreeProps> = ({
             
             if (isVerticalLink) return 0.8;
             // Moderate dimming for hover
-            return 0.3; // More visible than clicked state
+            return 0.1; // Much more transparent
           }
-          return 0.3; // Moderate dimming for clustering links
+          return 0.1; // Much more transparent for clustering links
         }
         return linkOpacity;
       })
@@ -940,7 +940,7 @@ const ForceTree: React.FC<ForceTreeProps> = ({
           const isRelevant = allVerticalNodes.has(d.id);
           if (isRelevant) return 1;
           // Moderate dimming for hover
-          return 0.4; // More visible than clicked state
+          return 0.15; // Much more transparent
         }
         return 0.8;
       })
@@ -959,7 +959,7 @@ const ForceTree: React.FC<ForceTreeProps> = ({
           const isRelevant = allVerticalNodes.has(d.id);
           if (isRelevant) return 1;
           // Moderate dimming for hover
-          return 0.5; // More visible than clicked state
+          return 0.2; // Much more transparent
         }
         return 1; // Full opacity when not hovering or clicked
       })
@@ -994,7 +994,7 @@ const ForceTree: React.FC<ForceTreeProps> = ({
           const isRelevant = allVerticalNodes.has(d.id);
           if (isRelevant) return 1;
           // Moderate dimming for hover
-          return d.type === 'track' ? 0.4 : 0.5; // More visible than clicked state
+          return d.type === 'track' ? 0.15 : 0.2; // Much more transparent
         }
         return d.type === 'track' ? 0.7 : 1;
       });
