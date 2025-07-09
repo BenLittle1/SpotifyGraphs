@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useState, useRef } from 'react';
 
 interface SpotifyLinkPopupProps {
   name: string;
@@ -11,21 +11,20 @@ interface SpotifyLinkPopupProps {
 
 const SpotifyLinkPopup: React.FC<SpotifyLinkPopupProps> = ({ name, type, spotifyUrl, onClose }) => {
   const [isVisible, setIsVisible] = useState(false);
-  const [timeoutId, setTimeoutId] = useState<number | null>(null);
+  const timeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   useEffect(() => {
     // Animate in
     setIsVisible(true);
 
     // Set timeout to auto-close after 5 seconds
-    const id = setTimeout(() => {
+    timeoutRef.current = setTimeout(() => {
       handleClose();
     }, 5000);
-    setTimeoutId(id);
 
     return () => {
-      if (timeoutId) {
-        clearTimeout(timeoutId);
+      if (timeoutRef.current) {
+        clearTimeout(timeoutRef.current);
       }
     };
   }, [name, spotifyUrl]); // Re-run effect when props change
