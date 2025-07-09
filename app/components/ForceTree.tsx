@@ -78,20 +78,45 @@ const ForceTree: React.FC<ForceTreeProps> = ({
         link.type === 'genre-artist' || link.type === 'artist-album' || link.type === 'album-track' || link.type === 'artist-track'
       );
       
-      hierarchicalLinks.forEach(link => {
-        const sourceId = typeof link.source === 'string' ? link.source : (link.source as any).id;
-        const targetId = typeof link.target === 'string' ? link.target : (link.target as any).id;
+      // Helper function to recursively find all parents up the hierarchy
+      const findAllAncestors = (currentId: string, visited = new Set<string>()) => {
+        if (visited.has(currentId)) return; // Prevent infinite loops
+        visited.add(currentId);
         
-        // If this node is the target, the source is its parent
-        if (targetId === nodeId) {
-          parents.add(sourceId);
-        }
+        hierarchicalLinks.forEach(link => {
+          const sourceId = typeof link.source === 'string' ? link.source : (link.source as any).id;
+          const targetId = typeof link.target === 'string' ? link.target : (link.target as any).id;
+          
+          // If this node is the target, the source is its parent
+          if (targetId === currentId && !parents.has(sourceId)) {
+            parents.add(sourceId);
+            // Recursively find parents of this parent
+            findAllAncestors(sourceId, visited);
+          }
+        });
+      };
+      
+      // Helper function to recursively find all children down the hierarchy
+      const findAllDescendants = (currentId: string, visited = new Set<string>()) => {
+        if (visited.has(currentId)) return; // Prevent infinite loops
+        visited.add(currentId);
         
-        // If this node is the source, the target is its child
-        if (sourceId === nodeId) {
-          children.add(targetId);
-        }
-      });
+        hierarchicalLinks.forEach(link => {
+          const sourceId = typeof link.source === 'string' ? link.source : (link.source as any).id;
+          const targetId = typeof link.target === 'string' ? link.target : (link.target as any).id;
+          
+          // If this node is the source, the target is its child
+          if (sourceId === currentId && !children.has(targetId)) {
+            children.add(targetId);
+            // Recursively find children of this child
+            findAllDescendants(targetId, visited);
+          }
+        });
+      };
+      
+      // Find the complete vertical hierarchy (ancestors and descendants)
+      findAllAncestors(nodeId);
+      findAllDescendants(nodeId);
       
       return { parents, children };
     };
