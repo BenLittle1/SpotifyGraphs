@@ -18,9 +18,10 @@ interface ForceGraphProps {
     'genre-cluster'?: string | { fill: string; stroke: string; strokeWidth?: number };
     'album-cluster'?: string | { fill: string; stroke: string; strokeWidth?: number };
   };
+  onNodeClick?: (node: GraphNode) => void;
 }
 
-const ForceGraph: React.FC<ForceGraphProps> = ({ data, width = 1200, height = 800, viewMode = 'network', colorScheme }) => {
+const ForceGraph: React.FC<ForceGraphProps> = ({ data, width = 1200, height = 800, viewMode = 'network', colorScheme, onNodeClick }) => {
   const svgRef = useRef<SVGSVGElement>(null);
     const [dynamicMode, setDynamicMode] = useState<boolean>(false);
   const [trackClustering, setTrackClustering] = useState<boolean>(true);
@@ -1103,7 +1104,12 @@ const ForceGraph: React.FC<ForceGraphProps> = ({ data, width = 1200, height = 80
         }, 100);
       })
     .on('click', (event, d) => {
-      if (d.spotifyUrl) {
+      // Call the onNodeClick callback if provided
+      if (onNodeClick) {
+        onNodeClick(d);
+      }
+      // Default behavior: open in Spotify if shift key is pressed
+      else if (event.shiftKey && d.spotifyUrl) {
         window.open(d.spotifyUrl, '_blank');
       }
     });

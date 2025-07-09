@@ -17,6 +17,7 @@ interface ForceTreeProps {
   gravity?: number;
   nodeScale?: number;
   linkOpacity?: number;
+  onNodeClick?: (node: ForceTreeNode) => void;
 }
 
 const ForceTree: React.FC<ForceTreeProps> = ({ 
@@ -28,7 +29,8 @@ const ForceTree: React.FC<ForceTreeProps> = ({
   linkDistance = 1.0,
   gravity = 1.0,
   nodeScale = 1.0,
-  linkOpacity = 0.4
+  linkOpacity = 0.4,
+  onNodeClick
 }) => {
   const svgRef = useRef<SVGSVGElement>(null);
   const gRef = useRef<any>(null);
@@ -684,6 +686,11 @@ const ForceTree: React.FC<ForceTreeProps> = ({
         // Shift+click opens in Spotify
         if (event.shiftKey && d.spotifyUrl) {
           window.open(d.spotifyUrl, '_blank');
+        }
+        
+        // Call the onNodeClick callback if provided
+        if (onNodeClick) {
+          onNodeClick(d);
         }
         
         setSelectedNode(d);

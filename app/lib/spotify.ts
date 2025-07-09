@@ -348,6 +348,34 @@ class SpotifyClient {
       throw error;
     }
   }
+
+  async searchArtists(query: string, limit = 20, offset = 0): Promise<any> {
+    try {
+      const encodedQuery = encodeURIComponent(query);
+      const response = await this.fetchWithRetry(
+        `${this.baseUrl}/search?q=${encodedQuery}&type=artist&limit=${limit}&offset=${offset}`
+      );
+
+      if (!response.ok) {
+        const contentType = response.headers.get('content-type');
+        if (contentType && contentType.includes('text/html')) {
+          throw new Error('Authentication failed. Please sign out and sign back in.');
+        }
+        
+        try {
+          const error: SpotifyError = await response.json();
+          throw new Error(`Spotify API Error: ${error.error.message}`);
+        } catch (jsonError) {
+          throw new Error('Authentication failed. Please sign out and sign back in.');
+        }
+      }
+
+      return await response.json();
+    } catch (error) {
+      console.error('Error searching artists:', error);
+      throw error;
+    }
+  }
 }
 
 export default SpotifyClient; 

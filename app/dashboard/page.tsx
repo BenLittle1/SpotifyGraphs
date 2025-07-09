@@ -39,6 +39,14 @@ const graphTypes: GraphType[] = [
     color: 'neon-red',
     route: '/dashboard/playboi-carti',
   },
+  {
+    id: 'artist-explorer',
+    title: 'Artist Explorer',
+    description: 'Search and explore any artist\'s discography with interactive visualization',
+    icon: '🔍',
+    color: 'neon-purple',
+    route: '/dashboard/artist-explorer',
+  },
   // {
   //   id: 'genre-map',
   //   title: 'Genre Map',
