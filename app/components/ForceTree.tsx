@@ -228,6 +228,9 @@ const ForceTree: React.FC<ForceTreeProps> = ({
       }
     });
 
+    // Filter nodes based on visibility
+    const filteredNodes = data.nodes.filter(node => visibleNodeIds.has(node.id));
+
     // Create dynamic links based on visibility settings
     const createDynamicLinks = () => {
       const dynamicLinks: ForceTreeLink[] = [];
@@ -441,9 +444,6 @@ const ForceTree: React.FC<ForceTreeProps> = ({
     };
     
     const filteredLinks = createDynamicLinks();
-    
-    // Filter nodes based on visibility
-    const filteredNodes = data.nodes.filter(node => visibleNodeIds.has(node.id));
 
     // Create links
     const link = g.append('g')

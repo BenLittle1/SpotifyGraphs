@@ -239,7 +239,7 @@ const ForceGraph: React.FC<ForceGraphProps> = ({ data, width = 1200, height = 80
       filteredNodes.filter(n => n.group === 'album').forEach(album => {
         // First try to find artist link (if artists are visible)
         if (showArtists) {
-          const artistLink = filteredLinks.find(l => 
+          const artistLink = data.links.find(l => 
             (l.source === album.id && filteredNodes.find(n => n.id === l.target)?.group === 'artist') ||
             (l.target === album.id && filteredNodes.find(n => n.id === l.source)?.group === 'artist')
           );
@@ -252,7 +252,7 @@ const ForceGraph: React.FC<ForceGraphProps> = ({ data, width = 1200, height = 80
         
         // Fallback to genre link (if genres are visible and artists are hidden)
         if (showGenres) {
-          const genreLink = filteredLinks.find(l => 
+          const genreLink = data.links.find(l => 
             (l.source === album.id && filteredNodes.find(n => n.id === l.target)?.group === 'genre') ||
             (l.target === album.id && filteredNodes.find(n => n.id === l.source)?.group === 'genre')
           );
@@ -267,7 +267,7 @@ const ForceGraph: React.FC<ForceGraphProps> = ({ data, width = 1200, height = 80
       filteredNodes.filter(n => n.group === 'track').forEach(track => {
         // First try to find album link (if albums are visible)
         if (showAlbums) {
-          const albumLink = filteredLinks.find(l => 
+          const albumLink = data.links.find(l => 
             (l.source === track.id && filteredNodes.find(n => n.id === l.target)?.group === 'album') ||
             (l.target === track.id && filteredNodes.find(n => n.id === l.source)?.group === 'album')
           );
@@ -280,7 +280,7 @@ const ForceGraph: React.FC<ForceGraphProps> = ({ data, width = 1200, height = 80
         
         // Fallback to artist link (if artists are visible)
         if (showArtists) {
-          const artistLink = filteredLinks.find(l => 
+          const artistLink = data.links.find(l => 
             (l.source === track.id && filteredNodes.find(n => n.id === l.target)?.group === 'artist') ||
             (l.target === track.id && filteredNodes.find(n => n.id === l.source)?.group === 'artist')
           );
@@ -293,7 +293,7 @@ const ForceGraph: React.FC<ForceGraphProps> = ({ data, width = 1200, height = 80
         
         // Final fallback to genre link (if genres are visible)
         if (showGenres) {
-          const genreLink = filteredLinks.find(l => 
+          const genreLink = data.links.find(l => 
             (l.source === track.id && filteredNodes.find(n => n.id === l.target)?.group === 'genre') ||
             (l.target === track.id && filteredNodes.find(n => n.id === l.source)?.group === 'genre')
           );
