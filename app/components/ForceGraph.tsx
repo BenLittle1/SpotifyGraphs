@@ -212,7 +212,40 @@ const ForceGraph: React.FC<ForceGraphProps> = ({ data, width = 1200, height = 80
     });
 
     // Filter nodes based on visibility
-    const filteredNodes = data.nodes.filter(node => visibleNodeIds.has(node.id));
+    let filteredNodes = data.nodes.filter(node => visibleNodeIds.has(node.id));
+    
+    // Identify albums that only have one connected track and should be bypassed
+    const singleTrackAlbums = new Set<string>();
+    const albumTrackCount = new Map<string, number>();
+    
+    // Count tracks per album in filtered nodes
+    filteredNodes.filter(n => n.group === 'track').forEach(track => {
+      // Find which album this track belongs to
+      const albumLink = data.links.find(l => 
+        l.type === 'album-track' && 
+        ((l.source === track.id && filteredNodes.find(n => n.id === l.target)?.group === 'album') ||
+         (l.target === track.id && filteredNodes.find(n => n.id === l.source)?.group === 'album'))
+      );
+      
+      if (albumLink) {
+        const albumId = albumLink.source === track.id ? albumLink.target : albumLink.source;
+        if (typeof albumId === 'string') {
+          albumTrackCount.set(albumId, (albumTrackCount.get(albumId) || 0) + 1);
+        }
+      }
+    });
+    
+    // Mark albums with only one track for removal
+    albumTrackCount.forEach((count, albumId) => {
+      if (count === 1) {
+        singleTrackAlbums.add(albumId);
+      }
+    });
+    
+    // Remove single-track albums from filtered nodes
+    filteredNodes = filteredNodes.filter(node => 
+      !(node.group === 'album' && singleTrackAlbums.has(node.id))
+    );
 
     // Add center force for non-hierarchical view
     if (!isHierarchical) {
@@ -265,7 +298,7 @@ const ForceGraph: React.FC<ForceGraphProps> = ({ data, width = 1200, height = 80
       
       // Map tracks to their primary parent (album, artist, or genre) based on visibility
       filteredNodes.filter(n => n.group === 'track').forEach(track => {
-        // First try to find album link (if albums are visible)
+        // First try to find album link (if albums are visible and not bypassed)
         if (showAlbums) {
           const albumLink = data.links.find(l => 
             (l.source === track.id && filteredNodes.find(n => n.id === l.target)?.group === 'album') ||
@@ -273,8 +306,11 @@ const ForceGraph: React.FC<ForceGraphProps> = ({ data, width = 1200, height = 80
           );
           if (albumLink) {
             const albumId = albumLink.source === track.id ? albumLink.target : albumLink.source;
-            nodeParents.set(track.id, albumId as string);
-            return;
+            // Skip if album was bypassed due to single-track rule
+            if (!singleTrackAlbums.has(albumId as string)) {
+              nodeParents.set(track.id, albumId as string);
+              return;
+            }
           }
         }
         
@@ -415,16 +451,33 @@ const ForceGraph: React.FC<ForceGraphProps> = ({ data, width = 1200, height = 80
       // Add dynamic reconnection links for orphaned nodes
       filteredNodes.forEach(node => {
         if (node.group === 'track') {
-          // Find if track has album connection
+          // Check if track's album was bypassed due to single-track rule
+          const originalAlbumLink = data.links.find(l => 
+            l.type === 'album-track' && 
+            ((l.source === node.id) || (l.target === node.id))
+          );
+          
+          let trackNeedsArtistConnection = false;
+          
+          if (originalAlbumLink) {
+            const albumId = originalAlbumLink.source === node.id ? originalAlbumLink.target : originalAlbumLink.source;
+            // If the album was bypassed due to single-track rule, connect directly to artist
+            if (singleTrackAlbums.has(albumId as string)) {
+              trackNeedsArtistConnection = true;
+            }
+          }
+          
+          // Find if track has album connection (excluding bypassed albums)
           const hasAlbumConnection = dynamicLinks.some(link => {
             const sourceId = typeof link.source === 'string' ? link.source : (link.source as any).id;
             const targetId = typeof link.target === 'string' ? link.target : (link.target as any).id;
             return (sourceId === node.id || targetId === node.id) && 
-                   (link.type === 'album-track');
+                   (link.type === 'album-track') &&
+                   !singleTrackAlbums.has(sourceId) && !singleTrackAlbums.has(targetId);
           });
           
-          // If no album connection and albums are hidden, connect to artists
-          if (!hasAlbumConnection && !showAlbums) {
+          // If no album connection (albums hidden OR bypassed), connect to artists
+          if ((!hasAlbumConnection && !showAlbums) || trackNeedsArtistConnection) {
             // Find artist connections in original data
             data.links.forEach(link => {
               const sourceId = typeof link.source === 'string' ? link.source : (link.source as any).id;
