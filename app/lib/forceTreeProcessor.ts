@@ -329,35 +329,97 @@ export function processSpotifyDataToForceTree(
   // Create track nodes and links
   // Collect all unique tracks with their albums (if album exists) or artists
   const allTracksWithParents: Array<[SpotifyTrack, ForceTreeNode]> = [];
+  const processedTrackIds = new Set<string>();
   
   // First add tracks from created albums
   albumMap.forEach((albumNode, albumId) => {
     const albumTracks = albumTrackMap.get(albumId) || [];
     albumTracks.forEach(track => {
-      if (!allTracksWithParents.find(([t, _]) => t.id === track.id)) {
+      if (!processedTrackIds.has(track.id)) {
         allTracksWithParents.push([track, albumNode]);
+        processedTrackIds.add(track.id);
       }
     });
   });
   
-  // Then add remaining tracks directly to artists (for albums that weren't created)
-  nodes.filter(n => n.type === 'artist').forEach(artistNode => {
-    const artistId = artistNode.id.replace('artist-', '');
+  // Then process ALL remaining tracks (including singles) and connect them to artists
+  tracks.forEach(track => {
+    if (processedTrackIds.has(track.id)) return; // Skip if already processed
     
-    // Get all tracks for this artist
-    const artistTracks: SpotifyTrack[] = [];
-    genreArtistMap.forEach(artistsMap => {
-      if (artistsMap.has(artistId)) {
-        artistTracks.push(...artistsMap.get(artistId)!);
-      }
-    });
+    // Find an artist node for this track
+    let artistNode: ForceTreeNode | null = null;
     
-    // Add unique tracks that don't already have an album parent
-    artistTracks.forEach(track => {
-      if (!allTracksWithParents.find(([t, _]) => t.id === track.id)) {
-        allTracksWithParents.push([track, artistNode]);
+    // Try each artist on the track
+    for (const trackArtist of track.artists) {
+      const artistNodeId = `artist-${trackArtist.id}`;
+      if (nodeMap.has(artistNodeId)) {
+        artistNode = nodeMap.get(artistNodeId)!;
+        break;
       }
-    });
+    }
+    
+    // If we found an artist node, connect the track to it
+    if (artistNode) {
+      allTracksWithParents.push([track, artistNode]);
+      processedTrackIds.add(track.id);
+    } else {
+      // If no artist node exists but we have space, create a minimal artist node
+      // This ensures no track is orphaned
+      if (nodes.length < maxNodes - 10) { // Leave some buffer
+        const firstArtist = track.artists[0];
+        if (firstArtist) {
+          const fullArtist = artistMap.get(firstArtist.id);
+          const artistNodeId = `artist-${firstArtist.id}`;
+          
+          // Create minimal artist node
+          const newArtistNode: ForceTreeNode = {
+            id: artistNodeId,
+            name: firstArtist.name,
+            type: 'artist',
+            value: track.popularity || 50,
+            popularity: fullArtist?.popularity || 50,
+            imageUrl: fullArtist?.images?.[0]?.url,
+            spotifyUrl: fullArtist?.external_urls?.spotify,
+            depth: 1,
+            parent: undefined
+          };
+          
+          nodes.push(newArtistNode);
+          nodeMap.set(artistNodeId, newArtistNode);
+          
+          // Try to connect to a genre if available
+          if (fullArtist?.genres?.length) {
+            const artistGenre = fullArtist.genres.find(g => sortedGenres.includes(g));
+            if (artistGenre) {
+              const genreId = `genre-${artistGenre}`;
+              newArtistNode.parent = genreId;
+              
+              links.push({
+                source: genreId,
+                target: artistNodeId,
+                value: track.popularity || 50,
+                type: 'genre-artist'
+              });
+              
+              // Also link to genre cluster
+              const clusterId = `cluster-${artistGenre}`;
+              if (nodeMap.has(clusterId)) {
+                links.push({
+                  source: clusterId,
+                  target: artistNodeId,
+                  value: (track.popularity || 50) * 1.5,
+                  type: 'cluster-artist'
+                });
+              }
+            }
+          }
+          
+          // Add track with new artist as parent
+          allTracksWithParents.push([track, newArtistNode]);
+          processedTrackIds.add(track.id);
+        }
+      }
+    }
   });
   
   // Sort all tracks by popularity and take the top ones
@@ -398,6 +460,22 @@ export function processSpotifyDataToForceTree(
             target: albumClusterId,
             value: (track.popularity || 50) * 0.5,
             type: 'cluster-track'
+          });
+        }
+        
+        // IMPORTANT: Also create a weaker link to the artist for singles or better visualization
+        const albumArtists = albumArtistMap.get(track.album.id);
+        if (albumArtists) {
+          albumArtists.forEach(artistId => {
+            const artistNodeId = `artist-${artistId}`;
+            if (nodeMap.has(artistNodeId)) {
+              links.push({
+                source: artistNodeId,
+                target: trackNodeId,
+                value: (track.popularity || 50) * 0.3,
+                type: 'artist-track'
+              });
+            }
           });
         }
       } else {
