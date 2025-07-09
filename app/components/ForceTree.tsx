@@ -42,11 +42,13 @@ const ForceTree: React.FC<ForceTreeProps> = ({
   const [dynamicMode, setDynamicMode] = useState<boolean>(false);
   const [trackClustering, setTrackClustering] = useState<boolean>(false);
   const [artistClustering, setArtistClustering] = useState<boolean>(true);
+  const [genreClustering, setGenreClustering] = useState<boolean>(true);
   const [linkOpacities, setLinkOpacities] = useState({
     'genre-artist': 0.6,
     'artist-track': 0.8,
     'cluster-artist': 0.4,
     'cluster-track': 0.3,
+    'genre-cluster': 0.5,
   });
 
   // Initialize the visualization only once
@@ -123,7 +125,8 @@ const ForceTree: React.FC<ForceTreeProps> = ({
       genre: '#ff00ff', // Magenta/Pink for genres
       artist: '#A855F7', // Dark neon purple for artists
       track: '#0080FF', // Vibrant electric blue for tracks
-      cluster: '#FFFFFF' // Invisible clustering nodes
+      cluster: '#FFFFFF', // Invisible artist clustering nodes
+      'genre-cluster': '#FFFFFF' // Invisible genre clustering nodes
     };
 
     // Size scales
@@ -150,7 +153,7 @@ const ForceTree: React.FC<ForceTreeProps> = ({
       .force('charge', d3.forceManyBody<ForceTreeNode>()
         .strength(d => {
           // Clustering nodes have minimal charge to avoid interference
-          if (d.type === 'cluster') {
+          if (d.type === 'cluster' || d.type === 'genre-cluster') {
             return -10; // Very weak repulsion
           }
           
@@ -170,7 +173,7 @@ const ForceTree: React.FC<ForceTreeProps> = ({
       .force('collision', d3.forceCollide<ForceTreeNode>()
         .radius(d => {
           // Clustering nodes have minimal collision radius
-          if (d.type === 'cluster') {
+          if (d.type === 'cluster' || d.type === 'genre-cluster') {
             return 1; // Very small collision radius
           }
           
@@ -191,6 +194,7 @@ const ForceTree: React.FC<ForceTreeProps> = ({
           else if (nodeCount > 800) distanceScale = 1.3;
           
           if (d.type === 'genre') return 0;
+          if (d.type === 'genre-cluster') return 50 * distanceScale; // Between center and genre
           if (d.type === 'cluster') return 100 * distanceScale; // Between genre and artist
           if (d.type === 'artist') return 200 * distanceScale;
           return 350 * distanceScale;
@@ -199,6 +203,7 @@ const ForceTree: React.FC<ForceTreeProps> = ({
         height / 2
       ).strength(d => {
         if (d.type === 'genre') return 0.8;
+        if (d.type === 'genre-cluster') return 0.1; // Very weak radial force
         if (d.type === 'cluster') return 0.1; // Very weak radial force
         return 0.3;
       }));
@@ -212,6 +217,9 @@ const ForceTree: React.FC<ForceTreeProps> = ({
       }
       if (!artistClustering && link.type === 'cluster-artist') {
         return false; // Hide cluster-artist links when artist clustering is disabled
+      }
+      if (!genreClustering && link.type === 'genre-cluster') {
+        return false; // Hide genre-cluster links when genre clustering is disabled
       }
       return true;
     });
@@ -389,7 +397,7 @@ const ForceTree: React.FC<ForceTreeProps> = ({
     return () => {
       simulation.stop();
     };
-  }, [data, trackClustering, artistClustering]); // Re-render when data or clustering settings change
+  }, [data, trackClustering, artistClustering, genreClustering]); // Re-render when data or clustering settings change
 
   // Update visual properties when sliders change
   useEffect(() => {
@@ -544,7 +552,7 @@ const ForceTree: React.FC<ForceTreeProps> = ({
       simulation.alpha(0.3).restart();
     }
 
-  }, [chargeStrength, collisionRadius, linkDistance, gravity, nodeScale, linkOpacity, data, width, height, expandedNodes, downstreamNodes, upstreamNodes, hoveredNode, dynamicMode, linkOpacities, trackClustering, artistClustering]);
+  }, [chargeStrength, collisionRadius, linkDistance, gravity, nodeScale, linkOpacity, data, width, height, expandedNodes, downstreamNodes, upstreamNodes, hoveredNode, dynamicMode, linkOpacities, trackClustering, artistClustering, genreClustering]);
 
   // Handle cluster expansion effect
   useEffect(() => {
@@ -654,6 +662,16 @@ const ForceTree: React.FC<ForceTreeProps> = ({
         <label className="flex items-center space-x-2 text-white text-sm">
           <input
             type="checkbox"
+            checked={genreClustering}
+            onChange={(e) => setGenreClustering(e.target.checked)}
+            className="w-4 h-4 text-pink-600 bg-gray-700 border-gray-600 rounded focus:ring-pink-500 focus:ring-2"
+          />
+          <span>Genre Clustering</span>
+        </label>
+        
+        <label className="flex items-center space-x-2 text-white text-sm">
+          <input
+            type="checkbox"
             checked={trackClustering}
             onChange={(e) => setTrackClustering(e.target.checked)}
             className="w-4 h-4 text-blue-600 bg-gray-700 border-gray-600 rounded focus:ring-blue-500 focus:ring-2"
@@ -677,6 +695,26 @@ const ForceTree: React.FC<ForceTreeProps> = ({
                 className="w-16 h-1 bg-gray-700 rounded-lg appearance-none cursor-pointer"
               />
               <span className="text-xs text-gray-400 w-8">{linkOpacities['cluster-artist']}</span>
+            </div>
+          </div>
+        )}
+        
+        {/* Genre Clustering Opacity - Only show when genre clustering is enabled */}
+        {genreClustering && (
+          <div className="space-y-2">
+            <div className="text-white text-xs font-semibold">Genre Clustering</div>
+            <div className="flex items-center space-x-2">
+              <span className="text-xs text-gray-300 w-20">Genre↔Cluster</span>
+              <input
+                type="range"
+                min="0"
+                max="1"
+                step="0.1"
+                value={linkOpacities['genre-cluster']}
+                onChange={(e) => setLinkOpacities(prev => ({...prev, 'genre-cluster': parseFloat(e.target.value)}))}
+                className="w-16 h-1 bg-gray-700 rounded-lg appearance-none cursor-pointer"
+              />
+              <span className="text-xs text-gray-400 w-8">{linkOpacities['genre-cluster']}</span>
             </div>
           </div>
         )}

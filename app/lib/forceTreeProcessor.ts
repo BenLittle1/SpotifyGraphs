@@ -4,7 +4,7 @@ import { SimulationNodeDatum } from 'd3';
 export interface ForceTreeNode extends SimulationNodeDatum {
   id: string;
   name: string;
-  type: 'genre' | 'artist' | 'track' | 'cluster';
+  type: 'genre' | 'artist' | 'track' | 'cluster' | 'genre-cluster';
   value: number;
   popularity?: number;
   imageUrl?: string;
@@ -18,7 +18,7 @@ export interface ForceTreeLink {
   source: string;
   target: string;
   value: number;
-  type?: 'genre-artist' | 'artist-track' | 'cluster-artist' | 'cluster-track';
+  type?: 'genre-artist' | 'artist-track' | 'cluster-artist' | 'cluster-track' | 'genre-cluster';
 }
 
 export interface ForceTreeData {

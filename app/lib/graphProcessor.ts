@@ -8,9 +8,65 @@ export function processSpotifyDataToGraph(
   const links: GraphLink[] = [];
   const nodeMap = new Map<string, GraphNode>();
 
-  // Create genre nodes first
+  // First, collect all genres and their artists for similarity calculation
+  const genreArtistsMap = new Map<string, Set<string>>();
+  artists.forEach(artist => {
+    artist.genres.forEach(genre => {
+      if (!genreArtistsMap.has(genre)) {
+        genreArtistsMap.set(genre, new Set());
+      }
+      genreArtistsMap.get(genre)!.add(artist.id);
+    });
+  });
+
+  // Calculate genre similarity based on shared artists (Jaccard similarity)
+  const calculateGenreSimilarity = (genre1: string, genre2: string): number => {
+    const artists1 = genreArtistsMap.get(genre1) || new Set();
+    const artists2 = genreArtistsMap.get(genre2) || new Set();
+    
+    const artists1Array = Array.from(artists1);
+    const artists2Array = Array.from(artists2);
+    
+    const intersection = new Set(artists1Array.filter(x => artists2.has(x)));
+    const union = new Set([...artists1Array, ...artists2Array]);
+    
+    return intersection.size / union.size; // Jaccard coefficient
+  };
+
+  // Create genre clusters based on similarity
+  const genreList = Array.from(genreArtistsMap.keys());
+  const genreClusters = new Map<string, string[]>(); // cluster ID -> genres
+  const genreToCluster = new Map<string, string>(); // genre -> cluster ID
+  const similarityThreshold = 0.3; // Threshold for clustering
+  let clusterCounter = 0;
+
+  // Simple clustering algorithm
+  genreList.forEach(genre => {
+    if (genreToCluster.has(genre)) return; // Already assigned
+
+    const cluster: string[] = [genre];
+    const clusterId = `genre-cluster-${clusterCounter++}`;
+    
+    // Find similar genres
+    genreList.forEach(otherGenre => {
+      if (genre !== otherGenre && !genreToCluster.has(otherGenre)) {
+        const similarity = calculateGenreSimilarity(genre, otherGenre);
+        if (similarity >= similarityThreshold) {
+          cluster.push(otherGenre);
+        }
+      }
+    });
+
+    // Assign genres to cluster
+    cluster.forEach(g => genreToCluster.set(g, clusterId));
+    genreClusters.set(clusterId, cluster);
+  });
+
+  // Create genre nodes and clustering nodes
   const genreMap = new Map<string, GraphNode>();
   const clusterMap = new Map<string, GraphNode>();
+  const genreClusterMap = new Map<string, GraphNode>(); // For genre clustering nodes
+  
   artists.forEach(artist => {
     artist.genres.forEach(genre => {
       if (!genreMap.has(genre)) {
@@ -24,7 +80,7 @@ export function processSpotifyDataToGraph(
         nodeMap.set(genreNode.id, genreNode);
         nodes.push(genreNode);
 
-        // Create invisible clustering node for this genre
+        // Create invisible clustering node for this genre (artist clustering)
         const clusterNode: GraphNode = {
           id: `cluster-${genre}`,
           name: `${genre} cluster`,
@@ -37,6 +93,41 @@ export function processSpotifyDataToGraph(
         nodes.push(clusterNode);
       }
     });
+  });
+
+  // Create genre cluster nodes (for genre clustering)
+  genreClusters.forEach((genres, clusterId) => {
+    if (genres.length > 1) { // Only create cluster if it has multiple genres
+      const clusterName = genres.slice(0, 2).join(' + ') + (genres.length > 2 ? '...' : '');
+      const genreClusterNode: GraphNode = {
+        id: clusterId,
+        name: `${clusterName} cluster`,
+        group: 'genre-cluster',
+        radius: 8,
+        invisible: true,
+      };
+      genreClusterMap.set(clusterId, genreClusterNode);
+      nodeMap.set(genreClusterNode.id, genreClusterNode);
+      nodes.push(genreClusterNode);
+    }
+  });
+
+  // Create genre clustering links
+  genreClusters.forEach((genres, clusterId) => {
+    if (genres.length > 1) {
+      genres.forEach(genre => {
+        const genreNode = genreMap.get(genre);
+        const genreClusterNode = genreClusterMap.get(clusterId);
+        if (genreNode && genreClusterNode) {
+          links.push({
+            source: genreNode.id,
+            target: genreClusterNode.id,
+            strength: 0.6,
+            type: 'genre-cluster',
+          });
+        }
+      });
+    }
   });
 
   // Create artist nodes (deduplicate by ID just in case)
