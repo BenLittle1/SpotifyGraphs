@@ -16,7 +16,7 @@ const ForceGraph: React.FC<ForceGraphProps> = ({ data, width = 1200, height = 80
   const [dynamicMode, setDynamicMode] = useState<boolean>(false);
   const [trackClustering, setTrackClustering] = useState<boolean>(false);
   const [artistClustering, setArtistClustering] = useState<boolean>(true);
-  const [genreClustering, setGenreClustering] = useState<boolean>(true);
+
   const [linkOpacities, setLinkOpacities] = useState({
     'genre-artist': 0.6,
     'artist-track': 0.8,
@@ -280,9 +280,7 @@ const ForceGraph: React.FC<ForceGraphProps> = ({ data, width = 1200, height = 80
       if (!artistClustering && link.type === 'cluster-artist') {
         return false; // Hide cluster-artist links when artist clustering is disabled
       }
-      if (!genreClustering && link.type === 'genre-cluster') {
-        return false; // Hide genre-cluster links when genre clustering is disabled
-      }
+      // Genre clustering is always enabled
       return true;
     });
 
@@ -398,45 +396,51 @@ const ForceGraph: React.FC<ForceGraphProps> = ({ data, width = 1200, height = 80
       .style('opacity', 0)
       .style('z-index', 1000);
 
-    // Function to find upstream nodes (parent nodes in hierarchy)
-    const findUpstreamNodes = (nodeId: string): Set<string> => {
-      const upstream = new Set<string>();
-      const toProcess = [nodeId];
+    // Function to find hierarchical parent and child nodes (vertical relationships only)
+    const findVerticalNodes = (nodeId: string): { parents: Set<string>, children: Set<string> } => {
+      const parents = new Set<string>();
+      const children = new Set<string>();
       
-      while (toProcess.length > 0) {
-        const currentId = toProcess.pop()!;
+      // Only consider hierarchical links (genre-artist, artist-track), not clustering links
+      const hierarchicalLinks = data.links.filter(link => 
+        link.type === 'genre-artist' || link.type === 'artist-track'
+      );
+      
+      hierarchicalLinks.forEach(link => {
+        const sourceId = typeof link.source === 'string' ? link.source : (link.source as any).id;
+        const targetId = typeof link.target === 'string' ? link.target : (link.target as any).id;
         
-        // Find all links where this node is the target (downstream)
-        data.links.forEach(link => {
-          const sourceId = typeof link.source === 'string' ? link.source : (link.source as any).id;
-          const targetId = typeof link.target === 'string' ? link.target : (link.target as any).id;
-          
-          if (targetId === currentId && !upstream.has(sourceId)) {
-            upstream.add(sourceId);
-            toProcess.push(sourceId);
-          }
-        });
-      }
+        // If this node is the target, the source is its parent
+        if (targetId === nodeId) {
+          parents.add(sourceId);
+        }
+        
+        // If this node is the source, the target is its child
+        if (sourceId === nodeId) {
+          children.add(targetId);
+        }
+      });
       
-      return upstream;
+      return { parents, children };
     };
 
-    // Function to find upstream links
-    const findUpstreamLinks = (nodeId: string, upstreamNodes: Set<string>): Set<string> => {
-      const upstreamLinks = new Set<string>();
-      const allRelevantNodes = new Set([nodeId, ...Array.from(upstreamNodes)]);
+    // Function to find hierarchical links for highlighting
+    const findVerticalLinks = (nodeId: string, parents: Set<string>, children: Set<string>): Set<string> => {
+      const verticalLinks = new Set<string>();
+      const allRelevantNodes = new Set([nodeId, ...Array.from(parents), ...Array.from(children)]);
       
       data.links.forEach((link, index) => {
         const sourceId = typeof link.source === 'string' ? link.source : (link.source as any).id;
         const targetId = typeof link.target === 'string' ? link.target : (link.target as any).id;
         
-        // Include link if it connects nodes in the upstream path
-        if (allRelevantNodes.has(sourceId) && allRelevantNodes.has(targetId)) {
-          upstreamLinks.add(index.toString());
+        // Only include hierarchical links between relevant nodes
+        if ((link.type === 'genre-artist' || link.type === 'artist-track') &&
+            allRelevantNodes.has(sourceId) && allRelevantNodes.has(targetId)) {
+          verticalLinks.add(index.toString());
         }
       });
       
-      return upstreamLinks;
+      return verticalLinks;
     };
 
     // Add hover interaction with improved event handling
@@ -447,11 +451,12 @@ const ForceGraph: React.FC<ForceGraphProps> = ({ data, width = 1200, height = 80
       if (currentHoveredNode === d.id) return; // Already highlighting this node
       currentHoveredNode = d.id;
 
-      // Find upstream nodes and links
-      const upstreamNodes = findUpstreamNodes(d.id);
-      const upstreamLinks = findUpstreamLinks(d.id, upstreamNodes);
+      // Find vertical relationships (parents and children in hierarchy)
+      const { parents, children } = findVerticalNodes(d.id);
+      const verticalLinks = findVerticalLinks(d.id, parents, children);
+      const allVerticalNodes = new Set([d.id, ...Array.from(parents), ...Array.from(children)]);
       
-      // Highlight the hovered node and upstream nodes
+      // Highlight the hovered node and its vertical relatives
       node.selectAll('circle')
         .attr('r', (nodeData: any) => {
           let baseRadius;
@@ -468,54 +473,77 @@ const ForceGraph: React.FC<ForceGraphProps> = ({ data, width = 1200, height = 80
           }
           
           // Apply dynamic scaling if dynamic mode is enabled
-          if (dynamicMode && (nodeData.id === d.id || upstreamNodes.has(nodeData.id))) {
+          if (dynamicMode && allVerticalNodes.has(nodeData.id)) {
             return baseRadius * 1.2; // Scale up highlighted nodes
           }
           return baseRadius;
         })
         .attr('stroke-width', (nodeData: any) => {
           if (nodeData.id === d.id) return 4; // Hovered node gets thicker border
-          if (upstreamNodes.has(nodeData.id)) return 3; // Upstream nodes get medium border
+          if (parents.has(nodeData.id) || children.has(nodeData.id)) return 3; // Vertical relatives get medium border
           return 2; // Others keep normal border
         })
         .attr('stroke-opacity', (nodeData: any) => {
-          if (nodeData.id === d.id || upstreamNodes.has(nodeData.id)) return 1;
+          if (allVerticalNodes.has(nodeData.id)) return 1;
           return 0.3; // Dim non-related nodes
         })
         .attr('fill-opacity', (nodeData: any) => {
-          if (nodeData.id === d.id || upstreamNodes.has(nodeData.id)) return 1;
+          if (allVerticalNodes.has(nodeData.id)) return 1;
           return 0.3; // Dim non-related nodes
         });
 
-      // Highlight upstream links
+      // Highlight vertical links only
       link.attr('stroke-opacity', (linkData: any, i: number) => {
-        if (upstreamLinks.has(i.toString())) return 0.8; // Highlight upstream links
+        if (verticalLinks.has(i.toString())) return 0.8; // Highlight vertical links
         return 0.1; // Dim other links
       })
       .attr('stroke-width', (linkData: any, i: number) => {
-        if (upstreamLinks.has(i.toString())) {
-          return (linkData.strength * (isSmall ? 1.5 : 1)) * 1.5; // Thicker upstream links
+        if (verticalLinks.has(i.toString())) {
+          return (linkData.strength * (isSmall ? 1.5 : 1)) * 1.5; // Thicker vertical links
         }
         return linkData.strength * (isSmall ? 1.5 : 1);
       });
 
-      // Highlight upstream text labels
+      // Highlight vertical text labels
       node.selectAll('text')
         .attr('opacity', (nodeData: any) => {
-          if (nodeData.id === d.id || upstreamNodes.has(nodeData.id)) return 1;
+          if (allVerticalNodes.has(nodeData.id)) return 1;
           return 0.3; // Dim non-related labels
         })
         .attr('font-weight', (nodeData: any) => {
-          if (nodeData.id === d.id || upstreamNodes.has(nodeData.id)) return 'bold';
+          if (allVerticalNodes.has(nodeData.id)) return 'bold';
           return 'normal';
         });
 
-      // Show enhanced tooltip with upstream information
-      const upstreamInfo = Array.from(upstreamNodes)
-        .map(nodeId => data.nodes.find(n => n.id === nodeId))
-        .filter(Boolean)
-        .map(n => n!.name)
-        .join(' → ');
+      // Show enhanced tooltip with hierarchical path information
+      const getHierarchicalPath = (nodeId: string): string => {
+        const node = data.nodes.find(n => n.id === nodeId);
+        if (!node) return '';
+        
+        if (node.group === 'track') {
+          // Track: find artist parent, then genre grandparent
+          const artistParent = Array.from(parents).find(id => data.nodes.find(n => n.id === id)?.group === 'artist');
+          if (artistParent) {
+            const artistNode = data.nodes.find(n => n.id === artistParent);
+            const { parents: artistParents } = findVerticalNodes(artistParent);
+            const genreGrandparent = Array.from(artistParents).find(id => data.nodes.find(n => n.id === id)?.group === 'genre');
+            if (genreGrandparent) {
+              const genreNode = data.nodes.find(n => n.id === genreGrandparent);
+              return `${genreNode?.name} → ${artistNode?.name} → ${node.name}`;
+            }
+            return `${artistNode?.name} → ${node.name}`;
+          }
+        } else if (node.group === 'artist') {
+          // Artist: find genre parent
+          const genreParent = Array.from(parents).find(id => data.nodes.find(n => n.id === id)?.group === 'genre');
+          if (genreParent) {
+            const genreNode = data.nodes.find(n => n.id === genreParent);
+            return `${genreNode?.name} → ${node.name}`;
+          }
+        }
+        
+        return node.name;
+      };
 
       tooltip.transition()
         .duration(200)
@@ -525,7 +553,7 @@ const ForceGraph: React.FC<ForceGraphProps> = ({ data, width = 1200, height = 80
         <div style="color: ${colorScale[d.group]}">
           <strong>${d.name}</strong><br/>
           ${d.group === 'track' || d.group === 'artist' ? `Popularity: ${d.popularity}<br/>` : ''}
-          ${upstreamInfo ? `Path: ${upstreamInfo} → <strong>${d.name}</strong>` : ''}
+          <div style="font-size: 12px; opacity: 0.8;">Path: ${getHierarchicalPath(d.id)}</div>
         </div>
       `);
       
@@ -663,7 +691,7 @@ const ForceGraph: React.FC<ForceGraphProps> = ({ data, width = 1200, height = 80
       simulation.stop();
       tooltip.remove();
     };
-  }, [data, width, height, viewMode, dynamicMode, linkOpacities, trackClustering, artistClustering, genreClustering]);
+  }, [data, width, height, viewMode, dynamicMode, linkOpacities, trackClustering, artistClustering]);
 
   return (
     <div className="relative">
@@ -689,15 +717,7 @@ const ForceGraph: React.FC<ForceGraphProps> = ({ data, width = 1200, height = 80
           <span>Artist Clustering</span>
         </label>
         
-        <label className="flex items-center space-x-2 text-white text-sm">
-          <input
-            type="checkbox"
-            checked={genreClustering}
-            onChange={(e) => setGenreClustering(e.target.checked)}
-            className="w-4 h-4 text-pink-600 bg-gray-700 border-gray-600 rounded focus:ring-pink-500 focus:ring-2"
-          />
-          <span>Genre Clustering</span>
-        </label>
+
         
         <label className="flex items-center space-x-2 text-white text-sm">
           <input
@@ -729,25 +749,23 @@ const ForceGraph: React.FC<ForceGraphProps> = ({ data, width = 1200, height = 80
           </div>
         )}
         
-        {/* Genre Clustering Opacity - Only show when genre clustering is enabled */}
-        {genreClustering && (
-          <div className="space-y-2">
-            <div className="text-white text-xs font-semibold">Genre Clustering</div>
-            <div className="flex items-center space-x-2">
-              <span className="text-xs text-gray-300 w-20">Genre↔Cluster</span>
-              <input
-                type="range"
-                min="0"
-                max="1"
-                step="0.1"
-                value={linkOpacities['genre-cluster']}
-                onChange={(e) => setLinkOpacities(prev => ({...prev, 'genre-cluster': parseFloat(e.target.value)}))}
-                className="w-16 h-1 bg-gray-700 rounded-lg appearance-none cursor-pointer"
-              />
-              <span className="text-xs text-gray-400 w-8">{linkOpacities['genre-cluster']}</span>
-            </div>
+        {/* Genre Clustering Opacity - Always enabled */}
+        <div className="space-y-2">
+          <div className="text-white text-xs font-semibold">Genre Clustering</div>
+          <div className="flex items-center space-x-2">
+            <span className="text-xs text-gray-300 w-20">Genre↔Cluster</span>
+            <input
+              type="range"
+              min="0"
+              max="1"
+              step="0.1"
+              value={linkOpacities['genre-cluster']}
+              onChange={(e) => setLinkOpacities(prev => ({...prev, 'genre-cluster': parseFloat(e.target.value)}))}
+              className="w-16 h-1 bg-gray-700 rounded-lg appearance-none cursor-pointer"
+            />
+            <span className="text-xs text-gray-400 w-8">{linkOpacities['genre-cluster']}</span>
           </div>
-        )}
+        </div>
         
         {/* Track Clustering Opacity - Only show when track clustering is enabled */}
         {trackClustering && (

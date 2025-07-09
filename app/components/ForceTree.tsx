@@ -42,7 +42,7 @@ const ForceTree: React.FC<ForceTreeProps> = ({
   const [dynamicMode, setDynamicMode] = useState<boolean>(false);
   const [trackClustering, setTrackClustering] = useState<boolean>(false);
   const [artistClustering, setArtistClustering] = useState<boolean>(true);
-  const [genreClustering, setGenreClustering] = useState<boolean>(true);
+
   const [linkOpacities, setLinkOpacities] = useState({
     'genre-artist': 0.6,
     'artist-track': 0.8,
@@ -58,47 +58,32 @@ const ForceTree: React.FC<ForceTreeProps> = ({
     const svg = d3.select(svgRef.current);
     svg.selectAll('*').remove();
 
-    // Function to find all downstream nodes
-    const findDownstreamNodes = (nodeId: string): Set<string> => {
-      const downstream = new Set<string>([nodeId]);
-      const toProcess = [nodeId];
+    // Function to find hierarchical parent and child nodes (vertical relationships only)
+    const findVerticalNodes = (nodeId: string): { parents: Set<string>, children: Set<string> } => {
+      const parents = new Set<string>();
+      const children = new Set<string>();
       
-      while (toProcess.length > 0) {
-        const currentId = toProcess.pop()!;
-        data.links.forEach(link => {
-          const sourceId = typeof link.source === 'string' ? link.source : (link.source as any).id;
-          const targetId = typeof link.target === 'string' ? link.target : (link.target as any).id;
-          
-          if (sourceId === currentId && !downstream.has(targetId)) {
-            downstream.add(targetId);
-            toProcess.push(targetId);
-          }
-        });
-      }
+      // Only consider hierarchical links (genre-artist, artist-track), not clustering links
+      const hierarchicalLinks = data.links.filter(link => 
+        link.type === 'genre-artist' || link.type === 'artist-track'
+      );
       
-      return downstream;
-    };
-
-    // Function to find all upstream nodes (parent nodes in hierarchy)
-    const findUpstreamNodes = (nodeId: string): Set<string> => {
-      const upstream = new Set<string>([nodeId]);
-      const toProcess = [nodeId];
+      hierarchicalLinks.forEach(link => {
+        const sourceId = typeof link.source === 'string' ? link.source : (link.source as any).id;
+        const targetId = typeof link.target === 'string' ? link.target : (link.target as any).id;
+        
+        // If this node is the target, the source is its parent
+        if (targetId === nodeId) {
+          parents.add(sourceId);
+        }
+        
+        // If this node is the source, the target is its child
+        if (sourceId === nodeId) {
+          children.add(targetId);
+        }
+      });
       
-      while (toProcess.length > 0) {
-        const currentId = toProcess.pop()!;
-        data.links.forEach(link => {
-          const sourceId = typeof link.source === 'string' ? link.source : (link.source as any).id;
-          const targetId = typeof link.target === 'string' ? link.target : (link.target as any).id;
-          
-          // Find all links where this node is the target (downstream from source)
-          if (targetId === currentId && !upstream.has(sourceId)) {
-            upstream.add(sourceId);
-            toProcess.push(sourceId);
-          }
-        });
-      }
-      
-      return upstream;
+      return { parents, children };
     };
 
     // Create container with zoom
@@ -218,9 +203,7 @@ const ForceTree: React.FC<ForceTreeProps> = ({
       if (!artistClustering && link.type === 'cluster-artist') {
         return false; // Hide cluster-artist links when artist clustering is disabled
       }
-      if (!genreClustering && link.type === 'genre-cluster') {
-        return false; // Hide genre-cluster links when genre clustering is disabled
-      }
+      // Genre clustering is always enabled
       return true;
     });
 
@@ -296,12 +279,11 @@ const ForceTree: React.FC<ForceTreeProps> = ({
       if (currentHoveredId === d.id) return; // Prevent redundant updates
       currentHoveredId = d.id;
       
-      const downstream = findDownstreamNodes(d.id);
-      const upstream = findUpstreamNodes(d.id);
+      const { parents, children } = findVerticalNodes(d.id);
       
       setHoveredNode(d);
-      setDownstreamNodes(downstream);
-      setUpstreamNodes(upstream);
+      setDownstreamNodes(children);
+      setUpstreamNodes(parents);
     };
 
     const clearHoverEffect = () => {
@@ -397,7 +379,7 @@ const ForceTree: React.FC<ForceTreeProps> = ({
     return () => {
       simulation.stop();
     };
-  }, [data, trackClustering, artistClustering, genreClustering]); // Re-render when data or clustering settings change
+  }, [data, trackClustering, artistClustering]); // Re-render when data or clustering settings change
 
   // Update visual properties when sliders change
   useEffect(() => {
@@ -406,7 +388,7 @@ const ForceTree: React.FC<ForceTreeProps> = ({
     const g = gRef.current;
     const simulation = simulationRef.current;
 
-    // Update link opacity - apply hover state for both upstream and downstream
+    // Update link opacity - apply hover state for vertical relationships only
     g.selectAll('.link')
       .attr('stroke-opacity', (l: any) => {
         // Only apply hover effects if we're currently hovering
@@ -414,12 +396,17 @@ const ForceTree: React.FC<ForceTreeProps> = ({
           const sourceId = typeof l.source === 'string' ? l.source : (l.source as any).id;
           const targetId = typeof l.target === 'string' ? l.target : (l.target as any).id;
           
-          // Check if this link is part of downstream path
-          const isDownstream = downstreamNodes.has(sourceId) && downstreamNodes.has(targetId);
-          // Check if this link is part of upstream path
-          const isUpstream = upstreamNodes.has(sourceId) && upstreamNodes.has(targetId);
+          // Only highlight hierarchical links (genre-artist, artist-track)
+          if (l.type === 'genre-artist' || l.type === 'artist-track') {
+            const allVerticalNodes = new Set([hoveredNode.id, ...Array.from(downstreamNodes), ...Array.from(upstreamNodes)]);
+            
+            // Check if this link connects nodes in the vertical hierarchy
+            const isVerticalLink = allVerticalNodes.has(sourceId) && allVerticalNodes.has(targetId);
+            
+            return isVerticalLink ? 0.8 : 0.05;
+          }
           
-          return (isDownstream || isUpstream) ? 0.8 : 0.05;
+          return 0.05; // Dim clustering links during hover
         }
         return linkOpacity;
       })
@@ -429,18 +416,19 @@ const ForceTree: React.FC<ForceTreeProps> = ({
           const sourceId = typeof l.source === 'string' ? l.source : (l.source as any).id;
           const targetId = typeof l.target === 'string' ? l.target : (l.target as any).id;
           
-          // Check if this link is part of downstream or upstream path
-          const isDownstream = downstreamNodes.has(sourceId) && downstreamNodes.has(targetId);
-          const isUpstream = upstreamNodes.has(sourceId) && upstreamNodes.has(targetId);
-          
-          if (isDownstream || isUpstream) {
-            const sourceNode = data.nodes.find(n => n.id === sourceId);
-            const nodeColors: { [key: string]: string } = {
-              genre: '#ff00ff',
-              artist: '#A855F7',
-              track: '#0080FF'
-            };
-            return sourceNode ? nodeColors[sourceNode.type as string] || '#444' : '#444';
+          // Only highlight hierarchical links
+          if (l.type === 'genre-artist' || l.type === 'artist-track') {
+            const allVerticalNodes = new Set([hoveredNode.id, ...Array.from(downstreamNodes), ...Array.from(upstreamNodes)]);
+            
+            if (allVerticalNodes.has(sourceId) && allVerticalNodes.has(targetId)) {
+              const sourceNode = data.nodes.find(n => n.id === sourceId);
+              const nodeColors: { [key: string]: string } = {
+                genre: '#ff00ff',
+                artist: '#A855F7',
+                track: '#0080FF'
+              };
+              return sourceNode ? nodeColors[sourceNode.type as string] || '#444' : '#444';
+            }
           }
         }
         return '#444';
@@ -463,16 +451,18 @@ const ForceTree: React.FC<ForceTreeProps> = ({
         
         // Apply dynamic hover sizing if dynamic mode is enabled
         if (dynamicMode && hoveredNode && (downstreamNodes.size > 0 || upstreamNodes.size > 0)) {
-          const isRelevant = downstreamNodes.has(d.id) || upstreamNodes.has(d.id);
+          const allVerticalNodes = new Set([hoveredNode.id, ...Array.from(downstreamNodes), ...Array.from(upstreamNodes)]);
+          const isRelevant = allVerticalNodes.has(d.id);
           return isRelevant ? baseRadius * nodeScale * 1.2 : baseRadius * nodeScale;
         }
         // Keep consistent sizing during hover to prevent node movement (default mode)
         return baseRadius * nodeScale;
       })
       .attr('fill-opacity', (d: any) => {
-        // Apply hover opacity for both upstream and downstream
+        // Apply hover opacity for vertical relationships only
         if (hoveredNode && (downstreamNodes.size > 0 || upstreamNodes.size > 0)) {
-          const isRelevant = downstreamNodes.has(d.id) || upstreamNodes.has(d.id);
+          const allVerticalNodes = new Set([hoveredNode.id, ...Array.from(downstreamNodes), ...Array.from(upstreamNodes)]);
+          const isRelevant = allVerticalNodes.has(d.id);
           return isRelevant ? 1 : 0.2;
         }
         return 0.8;
@@ -493,9 +483,10 @@ const ForceTree: React.FC<ForceTreeProps> = ({
     // Update text opacity
     g.selectAll('.node text')
       .attr('opacity', (d: any) => {
-        // Apply hover opacity for both upstream and downstream
+        // Apply hover opacity for vertical relationships only
         if (hoveredNode && (downstreamNodes.size > 0 || upstreamNodes.size > 0)) {
-          const isRelevant = downstreamNodes.has(d.id) || upstreamNodes.has(d.id);
+          const allVerticalNodes = new Set([hoveredNode.id, ...Array.from(downstreamNodes), ...Array.from(upstreamNodes)]);
+          const isRelevant = allVerticalNodes.has(d.id);
           if (isRelevant) return 1;
           return d.type === 'track' ? 0.1 : 0.2;
         }
@@ -552,7 +543,7 @@ const ForceTree: React.FC<ForceTreeProps> = ({
       simulation.alpha(0.3).restart();
     }
 
-  }, [chargeStrength, collisionRadius, linkDistance, gravity, nodeScale, linkOpacity, data, width, height, expandedNodes, downstreamNodes, upstreamNodes, hoveredNode, dynamicMode, linkOpacities, trackClustering, artistClustering, genreClustering]);
+  }, [chargeStrength, collisionRadius, linkDistance, gravity, nodeScale, linkOpacity, data, width, height, expandedNodes, downstreamNodes, upstreamNodes, hoveredNode, dynamicMode, linkOpacities, trackClustering, artistClustering]);
 
   // Handle cluster expansion effect
   useEffect(() => {
@@ -659,15 +650,7 @@ const ForceTree: React.FC<ForceTreeProps> = ({
           <span>Artist Clustering</span>
         </label>
         
-        <label className="flex items-center space-x-2 text-white text-sm">
-          <input
-            type="checkbox"
-            checked={genreClustering}
-            onChange={(e) => setGenreClustering(e.target.checked)}
-            className="w-4 h-4 text-pink-600 bg-gray-700 border-gray-600 rounded focus:ring-pink-500 focus:ring-2"
-          />
-          <span>Genre Clustering</span>
-        </label>
+
         
         <label className="flex items-center space-x-2 text-white text-sm">
           <input
@@ -699,25 +682,23 @@ const ForceTree: React.FC<ForceTreeProps> = ({
           </div>
         )}
         
-        {/* Genre Clustering Opacity - Only show when genre clustering is enabled */}
-        {genreClustering && (
-          <div className="space-y-2">
-            <div className="text-white text-xs font-semibold">Genre Clustering</div>
-            <div className="flex items-center space-x-2">
-              <span className="text-xs text-gray-300 w-20">Genre↔Cluster</span>
-              <input
-                type="range"
-                min="0"
-                max="1"
-                step="0.1"
-                value={linkOpacities['genre-cluster']}
-                onChange={(e) => setLinkOpacities(prev => ({...prev, 'genre-cluster': parseFloat(e.target.value)}))}
-                className="w-16 h-1 bg-gray-700 rounded-lg appearance-none cursor-pointer"
-              />
-              <span className="text-xs text-gray-400 w-8">{linkOpacities['genre-cluster']}</span>
-            </div>
+        {/* Genre Clustering Opacity - Always enabled */}
+        <div className="space-y-2">
+          <div className="text-white text-xs font-semibold">Genre Clustering</div>
+          <div className="flex items-center space-x-2">
+            <span className="text-xs text-gray-300 w-20">Genre↔Cluster</span>
+            <input
+              type="range"
+              min="0"
+              max="1"
+              step="0.1"
+              value={linkOpacities['genre-cluster']}
+              onChange={(e) => setLinkOpacities(prev => ({...prev, 'genre-cluster': parseFloat(e.target.value)}))}
+              className="w-16 h-1 bg-gray-700 rounded-lg appearance-none cursor-pointer"
+            />
+            <span className="text-xs text-gray-400 w-8">{linkOpacities['genre-cluster']}</span>
           </div>
-        )}
+        </div>
         
         {/* Track Clustering Opacity - Only show when track clustering is enabled */}
         {trackClustering && (
