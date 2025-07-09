@@ -68,7 +68,7 @@ const ForceTree: React.FC<ForceTreeProps> = ({
     const svg = d3.select(svgRef.current);
     svg.selectAll('*').remove();
 
-    // Function to find hierarchical parent and child nodes (vertical relationships only)
+    // Function to find only direct parent and child nodes (no siblings)
     const findVerticalNodes = (nodeId: string): { parents: Set<string>, children: Set<string> } => {
       const parents = new Set<string>();
       const children = new Set<string>();
@@ -78,45 +78,27 @@ const ForceTree: React.FC<ForceTreeProps> = ({
         link.type === 'genre-artist' || link.type === 'artist-album' || link.type === 'album-track' || link.type === 'artist-track'
       );
       
-      // Helper function to recursively find all parents up the hierarchy
-      const findAllAncestors = (currentId: string, visited = new Set<string>()) => {
-        if (visited.has(currentId)) return; // Prevent infinite loops
-        visited.add(currentId);
+      // Find only direct parents (one level up)
+      hierarchicalLinks.forEach(link => {
+        const sourceId = typeof link.source === 'string' ? link.source : (link.source as any).id;
+        const targetId = typeof link.target === 'string' ? link.target : (link.target as any).id;
         
-        hierarchicalLinks.forEach(link => {
-          const sourceId = typeof link.source === 'string' ? link.source : (link.source as any).id;
-          const targetId = typeof link.target === 'string' ? link.target : (link.target as any).id;
-          
-          // If this node is the target, the source is its parent
-          if (targetId === currentId && !parents.has(sourceId)) {
-            parents.add(sourceId);
-            // Recursively find parents of this parent
-            findAllAncestors(sourceId, visited);
-          }
-        });
-      };
+        // If this node is the target, the source is its direct parent
+        if (targetId === nodeId) {
+          parents.add(sourceId);
+        }
+      });
       
-      // Helper function to recursively find all children down the hierarchy
-      const findAllDescendants = (currentId: string, visited = new Set<string>()) => {
-        if (visited.has(currentId)) return; // Prevent infinite loops
-        visited.add(currentId);
+      // Find only direct children (one level down)
+      hierarchicalLinks.forEach(link => {
+        const sourceId = typeof link.source === 'string' ? link.source : (link.source as any).id;
+        const targetId = typeof link.target === 'string' ? link.target : (link.target as any).id;
         
-        hierarchicalLinks.forEach(link => {
-          const sourceId = typeof link.source === 'string' ? link.source : (link.source as any).id;
-          const targetId = typeof link.target === 'string' ? link.target : (link.target as any).id;
-          
-          // If this node is the source, the target is its child
-          if (sourceId === currentId && !children.has(targetId)) {
-            children.add(targetId);
-            // Recursively find children of this child
-            findAllDescendants(targetId, visited);
-          }
-        });
-      };
-      
-      // Find the complete vertical hierarchy (ancestors and descendants)
-      findAllAncestors(nodeId);
-      findAllDescendants(nodeId);
+        // If this node is the source, the target is its direct child
+        if (sourceId === nodeId) {
+          children.add(targetId);
+        }
+      });
       
       return { parents, children };
     };
@@ -192,6 +174,7 @@ const ForceTree: React.FC<ForceTreeProps> = ({
           if (d.type === 'genre') return -1000 * scaleFactor * chargeStrength;
           if (d.type === 'artist') return -300 * scaleFactor * chargeStrength;
           if (d.type === 'album') return -200 * scaleFactor * chargeStrength;
+          if (d.type === 'track') return -150 * scaleFactor * chargeStrength; // Moderate repulsion for tracks
           return -100 * scaleFactor * chargeStrength;
         }))
       .force('center', d3.forceCenter(width / 2, height / 2).strength(gravity))
@@ -224,6 +207,8 @@ const ForceTree: React.FC<ForceTreeProps> = ({
           if (d.type === 'genre-cluster') return 50 * distanceScale; // Between center and genre
           if (d.type === 'cluster') return 100 * distanceScale; // Between genre and artist
           if (d.type === 'artist') return 200 * distanceScale;
+          if (d.type === 'album') return 300 * distanceScale; // Albums positioned between artists and tracks
+          if (d.type === 'track') return 450 * distanceScale; // Tracks positioned furthest from center
           return 350 * distanceScale;
         },
         width / 2,
@@ -232,6 +217,8 @@ const ForceTree: React.FC<ForceTreeProps> = ({
         if (d.type === 'genre') return 0.8;
         if (d.type === 'genre-cluster') return 0.1; // Very weak radial force
         if (d.type === 'cluster') return 0.1; // Very weak radial force
+        if (d.type === 'album') return 0.5; // Moderate radial force for albums
+        if (d.type === 'track') return 0.6; // Strong radial force for tracks to keep them outermost
         return 0.3;
       }));
 

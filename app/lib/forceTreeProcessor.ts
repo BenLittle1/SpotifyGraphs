@@ -436,7 +436,7 @@ export function processSpotifyDataToForceTree(
         popularity: track.popularity,
         imageUrl: track.album?.images?.[0]?.url,
         spotifyUrl: track.external_urls?.spotify,
-        depth: parentNode.type === 'album' ? 2.5 : 2,
+        depth: parentNode.type === 'album' ? 3 : 2.5, // Increased depth - tracks should be furthest from center
         parent: parentNode.id
       };
       
@@ -452,13 +452,13 @@ export function processSpotifyDataToForceTree(
           type: 'album-track'
         });
         
-        // Also link to album clustering
+        // Reduce album clustering force to prevent tracks from being pulled inward
         const albumClusterId = `album-cluster-${track.album.id}`;
         if (nodeMap.has(albumClusterId)) {
           links.push({
             source: trackNodeId,
             target: albumClusterId,
-            value: (track.popularity || 50) * 0.5,
+            value: (track.popularity || 50) * 0.2, // Reduced from 0.5 to 0.2
             type: 'cluster-track'
           });
         }
@@ -488,7 +488,7 @@ export function processSpotifyDataToForceTree(
         });
       }
 
-      // Link tracks to genre clustering nodes for natural grouping
+      // Reduce genre clustering force for tracks to prevent inward pull
       track.artists.forEach(trackArtist => {
         const artist = artistMap.get(trackArtist.id);
         if (artist) {
@@ -499,7 +499,7 @@ export function processSpotifyDataToForceTree(
                 links.push({
                   source: trackNodeId,
                   target: clusterId,
-                  value: (track.popularity || 50) * 0.6, // Medium clustering force for tracks
+                  value: (track.popularity || 50) * 0.3, // Reduced from 0.6 to 0.3
                   type: 'cluster-track'
                 });
               }
