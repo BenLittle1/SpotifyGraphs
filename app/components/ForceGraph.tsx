@@ -656,11 +656,19 @@ const ForceGraph: React.FC<ForceGraphProps> = ({ data, width = 1200, height = 80
     };
     
     const filteredLinks = createDynamicLinks();
+    
+    // Final filter to ensure all links reference existing nodes
+    const validNodeIds = new Set(filteredNodes.map(n => n.id));
+    const validLinks = filteredLinks.filter(link => {
+      const sourceId = typeof link.source === 'string' ? link.source : (link.source as any).id;
+      const targetId = typeof link.target === 'string' ? link.target : (link.target as any).id;
+      return validNodeIds.has(sourceId) && validNodeIds.has(targetId);
+    });
 
     // Create links with dynamic opacity
     const link = container.append('g')
       .selectAll('line')
-      .data(filteredLinks)
+      .data(validLinks)
       .enter().append('line')
       .attr('stroke', '#ffffff')
       .attr('stroke-opacity', (d) => {
@@ -1068,7 +1076,7 @@ const ForceGraph: React.FC<ForceGraphProps> = ({ data, width = 1200, height = 80
 
     // Set simulation nodes and links
     simulation.nodes(filteredNodes);
-    (simulation.force('link') as d3.ForceLink<GraphNode, GraphLink>).links(filteredLinks);
+    (simulation.force('link') as d3.ForceLink<GraphNode, GraphLink>).links(validLinks);
 
     // Update positions on tick with dynamic frequency
     let tickCount = 0;

@@ -494,12 +494,20 @@ const ForceTree: React.FC<ForceTreeProps> = ({
     };
     
     const filteredLinks = createDynamicLinks();
+    
+    // Final filter to ensure all links reference existing nodes
+    const validNodeIds = new Set(filteredNodes.map(n => n.id));
+    const validLinks = filteredLinks.filter(link => {
+      const sourceId = typeof link.source === 'string' ? link.source : (link.source as any).id;
+      const targetId = typeof link.target === 'string' ? link.target : (link.target as any).id;
+      return validNodeIds.has(sourceId) && validNodeIds.has(targetId);
+    });
 
     // Create links
     const link = g.append('g')
       .attr('class', 'links')
       .selectAll('line')
-      .data(filteredLinks)
+      .data(validLinks)
       .enter().append('line')
       .attr('class', 'link')
       .attr('stroke', '#444')
@@ -644,7 +652,7 @@ const ForceTree: React.FC<ForceTreeProps> = ({
       node.attr('transform', d => `translate(${d.x},${d.y})`);
     });
 
-    (simulation.force('link') as any).links(filteredLinks);
+    (simulation.force('link') as any).links(validLinks);
 
     // Drag functions
     function dragstarted(event: any, d: ForceTreeNode) {
