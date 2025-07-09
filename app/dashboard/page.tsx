@@ -31,6 +31,14 @@ const graphTypes: GraphType[] = [
     color: 'neon-green',
     route: '/dashboard/top-tracks',
   },
+  {
+    id: 'playboi-carti',
+    title: 'Playboi Carti Discography',
+    description: 'Explore Playboi Carti\'s albums and tracks in a hierarchical view',
+    icon: '🧛',
+    color: 'neon-red',
+    route: '/dashboard/playboi-carti',
+  },
   // {
   //   id: 'genre-map',
   //   title: 'Genre Map',

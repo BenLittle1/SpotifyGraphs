@@ -283,6 +283,71 @@ class SpotifyClient {
       throw error;
     }
   }
+
+  async getArtistAlbums(artistId: string, includeGroups: string = 'album,single', limit = 50, offset = 0): Promise<any[]> {
+    try {
+      const response = await this.fetchWithRetry(
+        `${this.baseUrl}/artists/${artistId}/albums?include_groups=${includeGroups}&limit=${limit}&offset=${offset}`
+      );
+
+      if (!response.ok) {
+        const contentType = response.headers.get('content-type');
+        if (contentType && contentType.includes('text/html')) {
+          throw new Error('Authentication failed. Please sign out and sign back in.');
+        }
+        
+        try {
+          const error: SpotifyError = await response.json();
+          throw new Error(`Spotify API Error: ${error.error.message}`);
+        } catch (jsonError) {
+          throw new Error('Authentication failed. Please sign out and sign back in.');
+        }
+      }
+
+      const data = await response.json();
+      return data.items;
+    } catch (error) {
+      console.error('Error fetching artist albums:', error);
+      throw error;
+    }
+  }
+
+  async getAlbumTracks(albumId: string, limit = 50, offset = 0): Promise<SpotifyTrack[]> {
+    try {
+      const response = await this.fetchWithRetry(
+        `${this.baseUrl}/albums/${albumId}/tracks?limit=${limit}&offset=${offset}`
+      );
+
+      if (!response.ok) {
+        const contentType = response.headers.get('content-type');
+        if (contentType && contentType.includes('text/html')) {
+          throw new Error('Authentication failed. Please sign out and sign back in.');
+        }
+        
+        try {
+          const error: SpotifyError = await response.json();
+          throw new Error(`Spotify API Error: ${error.error.message}`);
+        } catch (jsonError) {
+          throw new Error('Authentication failed. Please sign out and sign back in.');
+        }
+      }
+
+      const data = await response.json();
+      // Add album info to each track since album endpoints don't include full track info
+      return data.items.map((track: any) => ({
+        ...track,
+        album: {
+          id: albumId,
+          // These will need to be filled in by the caller if needed
+          name: '',
+          images: []
+        }
+      }));
+    } catch (error) {
+      console.error('Error fetching album tracks:', error);
+      throw error;
+    }
+  }
 }
 
 export default SpotifyClient; 
