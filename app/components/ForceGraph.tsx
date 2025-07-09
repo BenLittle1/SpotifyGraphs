@@ -9,9 +9,18 @@ interface ForceGraphProps {
   width?: number;
   height?: number;
   viewMode?: 'network' | 'hierarchical';
+  colorScheme?: {
+    genre?: string;
+    artist?: string;
+    album?: string;
+    track?: string;
+    cluster?: string;
+    'genre-cluster'?: string;
+    'album-cluster'?: string;
+  };
 }
 
-const ForceGraph: React.FC<ForceGraphProps> = ({ data, width = 1200, height = 800, viewMode = 'network' }) => {
+const ForceGraph: React.FC<ForceGraphProps> = ({ data, width = 1200, height = 800, viewMode = 'network', colorScheme }) => {
   const svgRef = useRef<SVGSVGElement>(null);
     const [dynamicMode, setDynamicMode] = useState<boolean>(false);
   const [trackClustering, setTrackClustering] = useState<boolean>(true);
@@ -41,8 +50,8 @@ const ForceGraph: React.FC<ForceGraphProps> = ({ data, width = 1200, height = 80
     const svg = d3.select(svgRef.current);
     svg.selectAll('*').remove();
 
-    // Color scales for different node types
-    const colorScale = {
+    // Color scales for different node types with custom scheme support
+    const defaultColors = {
       genre: '#FF10F0', // neon-pink
       artist: '#A855F7', // dark neon purple
       album: '#10FF80', // neon green for albums
@@ -50,6 +59,16 @@ const ForceGraph: React.FC<ForceGraphProps> = ({ data, width = 1200, height = 80
       cluster: '#FFFFFF', // invisible artist clustering nodes
       'genre-cluster': '#FFFFFF', // invisible genre clustering nodes
       'album-cluster': '#FFFFFF', // invisible album clustering nodes
+    };
+
+    const colorScale = {
+      genre: colorScheme?.genre || defaultColors.genre,
+      artist: colorScheme?.artist || defaultColors.artist,
+      album: colorScheme?.album || defaultColors.album,
+      track: colorScheme?.track || defaultColors.track,
+      cluster: colorScheme?.cluster || defaultColors.cluster,
+      'genre-cluster': colorScheme?.['genre-cluster'] || defaultColors['genre-cluster'],
+      'album-cluster': colorScheme?.['album-cluster'] || defaultColors['album-cluster'],
     };
 
     // Create container for zoom

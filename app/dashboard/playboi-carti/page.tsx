@@ -191,6 +191,15 @@ export default function PlayboiCartiPage() {
               data={graphData}
               width={window.innerWidth}
               height={window.innerHeight - 73}
+              colorScheme={{
+                genre: '#DC2626', // red-600 - for genre nodes
+                artist: '#FFFFFF', // white - for artist nodes (Playboi Carti)
+                album: '#FEF2F2', // red-50 - very light red for albums
+                track: '#FECACA', // red-200 - light red for tracks
+                cluster: '#FFFFFF', // white for clustering nodes
+                'genre-cluster': '#FFFFFF', // white for genre clustering
+                'album-cluster': '#FFFFFF', // white for album clustering
+              }}
             />
           )}
         </div>
