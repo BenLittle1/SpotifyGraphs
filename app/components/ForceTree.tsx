@@ -757,6 +757,43 @@ const ForceTree: React.FC<ForceTreeProps> = ({
     const g = gRef.current;
     const simulation = simulationRef.current;
 
+    // Bring highlighted elements to front
+    if (hoveredNode && (downstreamNodes.size > 0 || upstreamNodes.size > 0)) {
+      const allVerticalNodes = new Set([hoveredNode.id, ...Array.from(downstreamNodes), ...Array.from(upstreamNodes)]);
+      
+      // Move highlighted links to front
+      g.selectAll('.link').each(function(l: any) {
+        const sourceId = typeof l.source === 'string' ? l.source : (l.source as any).id;
+        const targetId = typeof l.target === 'string' ? l.target : (l.target as any).id;
+        
+        // Only highlight hierarchical links
+        if (l.type === 'genre-artist' || l.type === 'artist-album' || l.type === 'album-track' || l.type === 'artist-track') {
+          const isVerticalLink = allVerticalNodes.has(sourceId) && allVerticalNodes.has(targetId);
+          
+          if (isVerticalLink) {
+            // Move this link to the front by re-appending it
+            const linkElement = d3.select(this);
+            const parent = linkElement.node()?.parentNode;
+            if (parent) {
+              parent.appendChild(linkElement.node()!);
+            }
+          }
+        }
+      });
+      
+      // Move highlighted nodes to front
+      g.selectAll('.node').each(function(d: any) {
+        if (allVerticalNodes.has(d.id)) {
+          // Move this node to the front by re-appending it
+          const nodeElement = d3.select(this);
+          const parent = nodeElement.node()?.parentNode;
+          if (parent) {
+            parent.appendChild(nodeElement.node()!);
+          }
+        }
+      });
+    }
+
     // Update link opacity - apply hover state for vertical relationships only
     g.selectAll('.link')
       .attr('stroke-opacity', (l: any) => {
