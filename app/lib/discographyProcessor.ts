@@ -31,33 +31,13 @@ export async function processDiscographyToGraph(
   };
   nodes.push(artistNode);
   
-  // Create genre nodes and link to artist
-  const genreNodes = new Map<string, GraphNode>();
-  artist.genres.forEach(genre => {
-    if (!genreNodes.has(genre)) {
-      const genreNode: GraphNode = {
-        id: `genre-${genre}`,
-        name: genre,
-        group: 'genre',
-        radius: 25,
-      };
-      genreNodes.set(genre, genreNode);
-      nodes.push(genreNode);
-    }
-    
-    // Link genre to artist
-    links.push({
-      source: `genre-${genre}`,
-      target: artistNode.id,
-      strength: 0.6,
-      type: 'genre-artist',
-    });
-  });
-  
   // Filter out singles and sort albums by release date
   const actualAlbums = albums
     .filter(album => !isSingle(album))
     .sort((a, b) => new Date(b.release_date).getTime() - new Date(a.release_date).getTime());
+  
+  // Track all created track nodes to ensure they're connected to artist
+  const allTrackNodes = new Set<string>();
   
   // Process each album
   for (const album of actualAlbums) {
@@ -95,6 +75,7 @@ export async function processDiscographyToGraph(
           radius: 12,
         };
         nodes.push(trackNode);
+        allTrackNodes.add(trackNode.id);
         
         // Link track to album
         links.push({
@@ -104,17 +85,63 @@ export async function processDiscographyToGraph(
           type: 'album-track',
         });
         
-        // Also create weaker direct link to artist for better visualization
+        // Always create direct link to artist for better visualization
         links.push({
           source: trackNode.id,
           target: artistNode.id,
-          strength: 0.3,
+          strength: 0.4, // Increased strength for direct artist connection
           type: 'artist-track',
         });
       });
     } catch (error) {
       console.error(`Failed to fetch tracks for album ${album.name}:`, error);
       // Continue with other albums even if one fails
+    }
+  }
+  
+  // Also process singles to ensure their tracks are included and connected
+  const singles = albums.filter(album => isSingle(album));
+  
+  for (const single of singles) {
+    try {
+      const tracks = await getAlbumTracks(single.id);
+      
+      tracks.forEach((track: any) => {
+        // Check if track node already exists (in case it was created through another album)
+        const existingTrackNode = nodes.find(n => n.id === `track-${track.id}`);
+        
+        if (!existingTrackNode) {
+          // Create track node for single
+          const trackNode: GraphNode = {
+            id: `track-${track.id}`,
+            name: track.name,
+            group: 'track',
+            popularity: track.popularity || 50,
+            spotifyUrl: track.external_urls?.spotify,
+            radius: 12,
+          };
+          nodes.push(trackNode);
+          allTrackNodes.add(trackNode.id);
+        }
+        
+        // Ensure direct connection to artist (don't create duplicate links)
+        const existingArtistLink = links.find(l => 
+          l.type === 'artist-track' && 
+          ((l.source === `track-${track.id}` && l.target === artistNode.id) ||
+           (l.target === `track-${track.id}` && l.source === artistNode.id))
+        );
+        
+        if (!existingArtistLink) {
+          links.push({
+            source: `track-${track.id}`,
+            target: artistNode.id,
+            strength: 0.5, // Stronger connection for singles
+            type: 'artist-track',
+          });
+        }
+      });
+    } catch (error) {
+      console.error(`Failed to fetch tracks for single ${single.name}:`, error);
     }
   }
   

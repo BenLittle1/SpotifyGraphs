@@ -131,12 +131,6 @@ export default function PlayboiCartiPage() {
                       <span className="text-white">{graphData.nodes.length}</span>
                     </div>
                     <div className="flex justify-between">
-                      <span className="text-gray-500">Genres:</span>
-                      <span className="text-pink-400">
-                        {graphData.nodes.filter(n => n.group === 'genre').length}
-                      </span>
-                    </div>
-                    <div className="flex justify-between">
                       <span className="text-gray-500">Albums:</span>
                       <span className="text-red-400">
                         {graphData.nodes.filter(n => n.group === 'album').length}
