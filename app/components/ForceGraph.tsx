@@ -14,7 +14,7 @@ interface ForceGraphProps {
 const ForceGraph: React.FC<ForceGraphProps> = ({ data, width = 1200, height = 800, viewMode = 'network' }) => {
   const svgRef = useRef<SVGSVGElement>(null);
     const [dynamicMode, setDynamicMode] = useState<boolean>(false);
-  const [trackClustering, setTrackClustering] = useState<boolean>(false);
+  const [trackClustering, setTrackClustering] = useState<boolean>(true);
   const [artistClustering, setArtistClustering] = useState<boolean>(true);
   const [albumClustering, setAlbumClustering] = useState<boolean>(true);
   

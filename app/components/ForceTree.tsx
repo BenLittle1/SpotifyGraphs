@@ -43,7 +43,7 @@ const ForceTree: React.FC<ForceTreeProps> = ({
   const [upstreamNodes, setUpstreamNodes] = useState<Set<string>>(new Set());
   const [expandedNodes, setExpandedNodes] = useState<Set<string>>(new Set());
     const [dynamicMode, setDynamicMode] = useState<boolean>(false);
-  const [trackClustering, setTrackClustering] = useState<boolean>(false);
+  const [trackClustering, setTrackClustering] = useState<boolean>(true);
   const [artistClustering, setArtistClustering] = useState<boolean>(true);
   const [albumClustering, setAlbumClustering] = useState<boolean>(true);
   
