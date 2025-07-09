@@ -68,7 +68,7 @@ const ForceTree: React.FC<ForceTreeProps> = ({
     const svg = d3.select(svgRef.current);
     svg.selectAll('*').remove();
 
-    // Function to find only direct parent and child nodes (no siblings)
+    // Function to find parent and child nodes with special logic for genres
     const findVerticalNodes = (nodeId: string): { parents: Set<string>, children: Set<string> } => {
       const parents = new Set<string>();
       const children = new Set<string>();
@@ -78,27 +78,56 @@ const ForceTree: React.FC<ForceTreeProps> = ({
         link.type === 'genre-artist' || link.type === 'artist-album' || link.type === 'album-track' || link.type === 'artist-track'
       );
       
-      // Find only direct parents (one level up)
-      hierarchicalLinks.forEach(link => {
-        const sourceId = typeof link.source === 'string' ? link.source : (link.source as any).id;
-        const targetId = typeof link.target === 'string' ? link.target : (link.target as any).id;
-        
-        // If this node is the target, the source is its direct parent
-        if (targetId === nodeId) {
-          parents.add(sourceId);
-        }
-      });
+      // Find the hovered node
+      const hoveredNode = data.nodes.find(n => n.id === nodeId);
       
-      // Find only direct children (one level down)
-      hierarchicalLinks.forEach(link => {
-        const sourceId = typeof link.source === 'string' ? link.source : (link.source as any).id;
-        const targetId = typeof link.target === 'string' ? link.target : (link.target as any).id;
+      // If the hovered node is a genre, show all descendants recursively
+      if (hoveredNode?.type === 'genre') {
+        // Helper function to recursively find all descendants from genre
+        const findAllDescendants = (currentId: string, visited = new Set<string>()) => {
+          if (visited.has(currentId)) return; // Prevent infinite loops
+          visited.add(currentId);
+          
+          hierarchicalLinks.forEach(link => {
+            const sourceId = typeof link.source === 'string' ? link.source : (link.source as any).id;
+            const targetId = typeof link.target === 'string' ? link.target : (link.target as any).id;
+            
+            // If this node is the source, the target is its child
+            if (sourceId === currentId && !children.has(targetId)) {
+              children.add(targetId);
+              // Recursively find children of this child
+              findAllDescendants(targetId, visited);
+            }
+          });
+        };
         
-        // If this node is the source, the target is its direct child
-        if (sourceId === nodeId) {
-          children.add(targetId);
-        }
-      });
+        // Find all descendants from genre down to tracks
+        findAllDescendants(nodeId);
+      } else {
+        // For non-genre nodes, show only direct parent-child relationships
+        
+        // Find only direct parents (one level up)
+        hierarchicalLinks.forEach(link => {
+          const sourceId = typeof link.source === 'string' ? link.source : (link.source as any).id;
+          const targetId = typeof link.target === 'string' ? link.target : (link.target as any).id;
+          
+          // If this node is the target, the source is its direct parent
+          if (targetId === nodeId) {
+            parents.add(sourceId);
+          }
+        });
+        
+        // Find only direct children (one level down)
+        hierarchicalLinks.forEach(link => {
+          const sourceId = typeof link.source === 'string' ? link.source : (link.source as any).id;
+          const targetId = typeof link.target === 'string' ? link.target : (link.target as any).id;
+          
+          // If this node is the source, the target is its direct child
+          if (sourceId === nodeId) {
+            children.add(targetId);
+          }
+        });
+      }
       
       return { parents, children };
     };
@@ -711,10 +740,10 @@ const ForceTree: React.FC<ForceTreeProps> = ({
             // Check if this link connects nodes in the vertical hierarchy
             const isVerticalLink = allVerticalNodes.has(sourceId) && allVerticalNodes.has(targetId);
             
-            return isVerticalLink ? 0.8 : 0.02; // Reduced from 0.05 to 0.02 for even dimmer non-highlighted links
+            return isVerticalLink ? 0.8 : 0.01; // Reduced from 0.02 to 0.01 for even dimmer non-highlighted links
           }
           
-          return 0.02; // Reduced from 0.05 to 0.02 - dim clustering links during hover even more
+          return 0.01; // Reduced from 0.02 to 0.01 - dim clustering links during hover even more
         }
         return linkOpacity;
       })
@@ -772,7 +801,7 @@ const ForceTree: React.FC<ForceTreeProps> = ({
         if (hoveredNode && (downstreamNodes.size > 0 || upstreamNodes.size > 0)) {
           const allVerticalNodes = new Set([hoveredNode.id, ...Array.from(downstreamNodes), ...Array.from(upstreamNodes)]);
           const isRelevant = allVerticalNodes.has(d.id);
-          return isRelevant ? 1 : 0.08; // Reduced from 0.2 to 0.08 for much dimmer non-highlighted nodes
+          return isRelevant ? 1 : 0.04; // Reduced from 0.08 to 0.04 for much dimmer non-highlighted nodes
         }
         return 0.8;
       })
@@ -798,7 +827,7 @@ const ForceTree: React.FC<ForceTreeProps> = ({
           const allVerticalNodes = new Set([hoveredNode.id, ...Array.from(downstreamNodes), ...Array.from(upstreamNodes)]);
           const isRelevant = allVerticalNodes.has(d.id);
           if (isRelevant) return 1;
-          return d.type === 'track' ? 0.03 : 0.06; // Reduced from 0.1/0.2 to 0.03/0.06 for much dimmer text
+          return d.type === 'track' ? 0.01 : 0.02; // Reduced from 0.03/0.06 to 0.01/0.02 for much dimmer text
         }
         return d.type === 'track' ? 0.7 : 1;
       });
