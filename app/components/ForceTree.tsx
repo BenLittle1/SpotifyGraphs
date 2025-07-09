@@ -139,29 +139,9 @@ const ForceTree: React.FC<ForceTreeProps> = ({
         // For tracks: show all ancestors up to genre (track → album → artist → genre OR track → artist → genre)
         findAllAncestors(nodeId);
       } else {
-        // For artists: show only direct parent-child relationships
-        
-        // Find only direct parents (one level up)
-        hierarchicalLinks.forEach(link => {
-          const sourceId = typeof link.source === 'string' ? link.source : (link.source as any).id;
-          const targetId = typeof link.target === 'string' ? link.target : (link.target as any).id;
-          
-          // If this node is the target, the source is its direct parent
-          if (targetId === nodeId) {
-            parents.add(sourceId);
-          }
-        });
-        
-        // Find only direct children (one level down)
-        hierarchicalLinks.forEach(link => {
-          const sourceId = typeof link.source === 'string' ? link.source : (link.source as any).id;
-          const targetId = typeof link.target === 'string' ? link.target : (link.target as any).id;
-          
-          // If this node is the source, the target is its direct child
-          if (sourceId === nodeId) {
-            children.add(targetId);
-          }
-        });
+        // For artists: show all ancestors up to genre AND all descendants down to tracks
+        findAllAncestors(nodeId);
+        findAllDescendants(nodeId);
       }
       
       return { parents, children };
