@@ -66,8 +66,8 @@ export default function PlayboiCartiPage() {
     return (
       <div className="min-h-screen bg-black flex items-center justify-center">
         <div className="text-center">
-          <div className="animate-spin rounded-full h-16 w-16 border-t-2 border-b-2 border-red-500 mx-auto mb-4"></div>
-          <p className="text-gray-400">Loading...</p>
+          <div className="animate-spin rounded-full h-16 w-16 border-t-4 border-b-4 border-red-500 mx-auto mb-4"></div>
+          <p className="text-white">Loading...</p>
         </div>
       </div>
     );
@@ -76,18 +76,20 @@ export default function PlayboiCartiPage() {
   return (
     <div className="min-h-screen bg-black text-white">
       {/* Header */}
-      <div className="border-b border-gray-800">
+      <div className="border-b border-red-900/50">
         <div className="container mx-auto px-4 py-4">
           <div className="flex items-center justify-between">
             <div className="flex items-center space-x-4">
               <Link 
                 href="/dashboard"
-                className="text-gray-400 hover:text-white transition-colors"
+                className="text-red-200 hover:text-white transition-colors duration-200 flex items-center space-x-1"
               >
-                ← Back to Dashboard
+                <span>←</span>
+                <span>Back to Dashboard</span>
               </Link>
               <h1 className="text-2xl font-bold">
-                <span className="text-red-500">Playboi Carti</span> Discography
+                <span className="text-red-500">Playboi Carti</span> 
+                <span className="text-white ml-2">Discography</span>
               </h1>
             </div>
           </div>
@@ -98,12 +100,12 @@ export default function PlayboiCartiPage() {
       <div className="flex h-[calc(100vh-73px)] relative">
         {/* Controls Menu */}
         <div className={`absolute top-4 right-4 z-20 transition-all duration-300 ${showControls ? 'translate-x-0' : 'translate-x-full'}`}>
-          <div className="bg-gray-900 border border-gray-700 rounded-lg shadow-xl p-6 w-80">
+          <div className="bg-gray-900/95 backdrop-blur-sm border border-red-500/30 rounded-lg shadow-2xl p-6 w-80">
             <div className="flex items-center justify-between mb-4">
-              <h2 className="text-lg font-semibold">Visualization Controls</h2>
+              <h2 className="text-lg font-semibold text-white">Visualization Controls</h2>
               <button
                 onClick={() => setShowControls(false)}
-                className="text-gray-400 hover:text-white transition-colors"
+                className="text-red-300 hover:text-white transition-colors duration-200"
               >
                 <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
@@ -116,29 +118,29 @@ export default function PlayboiCartiPage() {
               <button
                 onClick={fetchDiscography}
                 disabled={loading}
-                className="w-full px-4 py-2 bg-gradient-to-r from-red-500 to-pink-500 text-white rounded-md hover:from-red-600 hover:to-pink-600 transition-all disabled:opacity-50 disabled:cursor-not-allowed"
+                className="w-full px-4 py-3 bg-gradient-to-r from-red-600 to-red-500 text-white rounded-lg hover:from-red-700 hover:to-red-600 transition-all duration-200 disabled:opacity-50 disabled:cursor-not-allowed font-medium shadow-lg"
               >
                 {loading ? 'Loading...' : 'Refresh Data'}
               </button>
 
               {/* Stats */}
               {graphData && !loading && (
-                <div className="pt-4 border-t border-gray-700">
-                  <h3 className="text-sm font-semibold text-gray-400 mb-3">Statistics</h3>
-                  <div className="space-y-2 text-sm">
-                    <div className="flex justify-between">
-                      <span className="text-gray-500">Total Nodes:</span>
-                      <span className="text-white">{graphData.nodes.length}</span>
+                <div className="pt-4 border-t border-red-500/20">
+                  <h3 className="text-sm font-semibold text-red-300 mb-3">Statistics</h3>
+                  <div className="space-y-3 text-sm">
+                    <div className="flex justify-between items-center">
+                      <span className="text-red-200">Total Nodes:</span>
+                      <span className="text-white font-medium">{graphData.nodes.length}</span>
                     </div>
-                    <div className="flex justify-between">
-                      <span className="text-gray-500">Albums:</span>
-                      <span className="text-red-400">
+                    <div className="flex justify-between items-center">
+                      <span className="text-red-200">Albums:</span>
+                      <span className="text-red-400 font-medium">
                         {graphData.nodes.filter(n => n.group === 'album').length}
                       </span>
                     </div>
-                    <div className="flex justify-between">
-                      <span className="text-gray-500">Tracks:</span>
-                      <span className="text-green-400">
+                    <div className="flex justify-between items-center">
+                      <span className="text-red-200">Tracks:</span>
+                      <span className="text-white font-medium">
                         {graphData.nodes.filter(n => n.group === 'track').length}
                       </span>
                     </div>
@@ -152,9 +154,9 @@ export default function PlayboiCartiPage() {
         {/* Toggle Button */}
         <button
           onClick={() => setShowControls(!showControls)}
-          className={`absolute top-4 right-4 z-10 p-3 bg-gray-900 border border-gray-700 rounded-lg shadow-lg hover:bg-gray-800 transition-all duration-300 ${showControls ? 'opacity-0 pointer-events-none' : 'opacity-100'}`}
+          className={`absolute top-4 right-4 z-10 p-3 bg-gray-900/95 backdrop-blur-sm border border-red-500/30 rounded-lg shadow-lg hover:bg-gray-800/95 hover:border-red-400/50 transition-all duration-300 ${showControls ? 'opacity-0 pointer-events-none' : 'opacity-100'}`}
         >
-          <svg className="w-6 h-6 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <svg className="w-6 h-6 text-red-300" fill="none" stroke="currentColor" viewBox="0 0 24 24">
             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 6V4m0 2a2 2 0 100 4m0-4a2 2 0 110 4m-6 8a2 2 0 100-4m0 4a2 2 0 110-4m0 4v2m0-6V4m6 6v10m6-2a2 2 0 100-4m0 4a2 2 0 110-4m0 4v2m0-6V4" />
           </svg>
         </button>
@@ -162,21 +164,21 @@ export default function PlayboiCartiPage() {
         {/* Visualization Area */}
         <div className="flex-1 relative bg-black">
           {loading && (
-            <div className="absolute inset-0 flex items-center justify-center">
+            <div className="absolute inset-0 flex items-center justify-center bg-black/80 backdrop-blur-sm">
               <div className="text-center">
-                <div className="animate-spin rounded-full h-16 w-16 border-t-2 border-b-2 border-red-500 mx-auto mb-4"></div>
-                <p className="text-gray-400">Loading Playboi Carti's discography...</p>
+                <div className="animate-spin rounded-full h-16 w-16 border-t-4 border-b-4 border-red-500 mx-auto mb-4"></div>
+                <p className="text-red-200 text-lg">Loading Playboi Carti's discography...</p>
               </div>
             </div>
           )}
 
           {error && (
-            <div className="absolute inset-0 flex items-center justify-center">
-              <div className="text-center">
-                <div className="text-red-500 mb-4">Error: {error}</div>
+            <div className="absolute inset-0 flex items-center justify-center bg-black/80 backdrop-blur-sm">
+              <div className="text-center bg-gray-900/95 border border-red-500/30 rounded-lg p-8 max-w-md">
+                <div className="text-red-400 mb-6 text-lg font-medium">Error: {error}</div>
                 <button
                   onClick={fetchDiscography}
-                  className="px-4 py-2 bg-red-600 text-white rounded hover:bg-red-700 transition-colors"
+                  className="px-6 py-3 bg-gradient-to-r from-red-600 to-red-500 text-white rounded-lg hover:from-red-700 hover:to-red-600 transition-all duration-200 font-medium shadow-lg"
                 >
                   Try Again
                 </button>
