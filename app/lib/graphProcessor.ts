@@ -173,7 +173,81 @@ export function processSpotifyDataToGraph(
     });
   });
 
-  // Create track nodes and link to artists
+  // Create album nodes and clustering nodes
+  const albumMap = new Map<string, GraphNode>();
+  const albumClusterMap = new Map<string, GraphNode>();
+  const albumArtistMap = new Map<string, Set<string>>(); // album ID -> artist IDs
+  
+  tracks.forEach(track => {
+    if (!albumMap.has(track.album.id)) {
+      // Calculate album popularity as average of its tracks
+      const albumTracks = tracks.filter(t => t.album.id === track.album.id);
+      const albumPopularity = albumTracks.reduce((sum, t) => sum + t.popularity, 0) / albumTracks.length;
+      
+      const albumNode: GraphNode = {
+        id: `album-${track.album.id}`,
+        name: track.album.name,
+        group: 'album',
+        popularity: albumPopularity,
+        imageUrl: track.album.images[0]?.url,
+        radius: Math.max(12, Math.min(25, albumPopularity / 4)),
+      };
+      albumMap.set(track.album.id, albumNode);
+      nodeMap.set(albumNode.id, albumNode);
+      nodes.push(albumNode);
+      
+      // Create invisible album clustering node
+      const albumClusterNode: GraphNode = {
+        id: `album-cluster-${track.album.id}`,
+        name: `${track.album.name} cluster`,
+        group: 'album-cluster',
+        radius: 3,
+        invisible: true,
+      };
+      albumClusterMap.set(track.album.id, albumClusterNode);
+      nodeMap.set(albumClusterNode.id, albumClusterNode);
+      nodes.push(albumClusterNode);
+    }
+    
+    // Track which artists are on this album
+    if (!albumArtistMap.has(track.album.id)) {
+      albumArtistMap.set(track.album.id, new Set());
+    }
+    track.artists.forEach(artist => {
+      albumArtistMap.get(track.album.id)!.add(artist.id);
+    });
+  });
+  
+  // Link albums to their artists
+  albumArtistMap.forEach((artistIds, albumId) => {
+    const albumNode = albumMap.get(albumId);
+    if (albumNode) {
+      artistIds.forEach(artistId => {
+        const artistNodeId = `artist-${artistId}`;
+        if (nodeMap.has(artistNodeId)) {
+          links.push({
+            source: artistNodeId,
+            target: albumNode.id,
+            strength: 0.7,
+            type: 'artist-album',
+          });
+          
+          // Link album to album clustering node
+          const albumClusterNode = albumClusterMap.get(albumId);
+          if (albumClusterNode) {
+            links.push({
+              source: albumNode.id,
+              target: albumClusterNode.id,
+              strength: 0.7,
+              type: 'cluster-album',
+            });
+          }
+        }
+      });
+    }
+  });
+
+  // Create track nodes and link to albums (instead of directly to artists)
   tracks.forEach(track => {
     // Track nodes: range from 8 to 20 (smaller than genres)
     const trackNode: GraphNode = {
@@ -188,14 +262,36 @@ export function processSpotifyDataToGraph(
     nodeMap.set(trackNode.id, trackNode);
     nodes.push(trackNode);
 
-    // Link tracks to their artists
+    // Link tracks to their albums
+    const albumNodeId = `album-${track.album.id}`;
+    if (nodeMap.has(albumNodeId)) {
+      links.push({
+        source: trackNode.id,
+        target: albumNodeId,
+        strength: 0.8,
+        type: 'album-track',
+      });
+      
+      // Also link tracks to album clustering nodes
+      const albumClusterNode = albumClusterMap.get(track.album.id);
+      if (albumClusterNode) {
+        links.push({
+          source: trackNode.id,
+          target: albumClusterNode.id,
+          strength: 0.6,
+          type: 'cluster-track',
+        });
+      }
+    }
+
+    // Also create direct artist-track links for flexibility
     track.artists.forEach(trackArtist => {
       const artistNodeId = `artist-${trackArtist.id}`;
       if (nodeMap.has(artistNodeId)) {
         links.push({
           source: trackNode.id,
           target: artistNodeId,
-          strength: 0.8,
+          strength: 0.3, // Weaker since primary connection is through album
           type: 'artist-track',
         });
 
@@ -208,7 +304,7 @@ export function processSpotifyDataToGraph(
               links.push({
                 source: trackNode.id,
                 target: clusterNode.id,
-                strength: 0.6, // Medium clustering force for tracks
+                strength: 0.4, // Medium clustering force for tracks
                 type: 'cluster-track',
               });
             }

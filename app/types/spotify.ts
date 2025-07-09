@@ -40,7 +40,7 @@ export interface SpotifyArtist {
 export interface GraphNode extends SimulationNodeDatum {
   id: string;
   name: string;
-  group: 'genre' | 'artist' | 'track' | 'cluster' | 'genre-cluster';
+  group: 'genre' | 'artist' | 'album' | 'track' | 'cluster' | 'genre-cluster' | 'album-cluster';
   radius?: number;
   popularity?: number;
   imageUrl?: string;
@@ -52,7 +52,7 @@ export interface GraphLink {
   source: string;
   target: string;
   strength: number;
-  type?: 'genre-artist' | 'artist-track' | 'cluster-artist' | 'cluster-track' | 'genre-cluster';
+  type?: 'genre-artist' | 'artist-album' | 'album-track' | 'artist-track' | 'cluster-artist' | 'cluster-album' | 'cluster-track' | 'genre-cluster';
 }
 
 export interface GraphData {

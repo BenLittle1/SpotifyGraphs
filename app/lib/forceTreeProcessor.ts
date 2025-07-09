@@ -4,7 +4,7 @@ import { SimulationNodeDatum } from 'd3';
 export interface ForceTreeNode extends SimulationNodeDatum {
   id: string;
   name: string;
-  type: 'genre' | 'artist' | 'track' | 'cluster' | 'genre-cluster';
+  type: 'genre' | 'artist' | 'album' | 'track' | 'cluster' | 'genre-cluster' | 'album-cluster';
   value: number;
   popularity?: number;
   imageUrl?: string;
@@ -18,7 +18,7 @@ export interface ForceTreeLink {
   source: string;
   target: string;
   value: number;
-  type?: 'genre-artist' | 'artist-track' | 'cluster-artist' | 'cluster-track' | 'genre-cluster';
+  type?: 'genre-artist' | 'artist-album' | 'album-track' | 'artist-track' | 'cluster-artist' | 'cluster-album' | 'cluster-track' | 'genre-cluster';
 }
 
 export interface ForceTreeData {
@@ -113,10 +113,12 @@ export function processSpotifyDataToForceTree(
   });
 
   // Create artist nodes and links
-  // Use 25-35% of nodes for artists depending on total node count
-  const artistRatio = maxNodes <= 400 ? 0.25 : 0.35;
+  // Allocate nodes: ~20% artists, ~20% albums, rest for tracks
+  const artistRatio = maxNodes <= 400 ? 0.20 : 0.25;
+  const albumRatio = maxNodes <= 400 ? 0.20 : 0.25;
   const artistNodeCount = Math.floor(maxNodes * artistRatio);
-  const trackNodeCount = maxNodes - sortedGenres.length - artistNodeCount; // Rest for tracks
+  const albumNodeCount = Math.floor(maxNodes * albumRatio);
+  const trackNodeCount = maxNodes - sortedGenres.length - artistNodeCount - albumNodeCount; // Rest for tracks
   
   // Collect unique artists and their total popularity across all genres
   const artistPopularityMap = new Map<string, number>();
@@ -213,10 +215,116 @@ export function processSpotifyDataToForceTree(
     });
   });
 
-  // Create track nodes and links
-  // Collect all unique tracks with their artists
-  const allTracksWithArtists: Array<[SpotifyTrack, ForceTreeNode]> = [];
+  // Create album nodes
+  const albumMap = new Map<string, ForceTreeNode>();
+  const albumArtistMap = new Map<string, Set<string>>(); // album ID -> artist IDs
+  const albumTrackMap = new Map<string, SpotifyTrack[]>(); // album ID -> tracks
+  const albumPopularityMap = new Map<string, number>(); // album ID -> total popularity
   
+  // Collect album data from tracks
+  tracks.forEach(track => {
+    if (!albumTrackMap.has(track.album.id)) {
+      albumTrackMap.set(track.album.id, []);
+    }
+    albumTrackMap.get(track.album.id)!.push(track);
+    
+    // Track album popularity
+    const currentPop = albumPopularityMap.get(track.album.id) || 0;
+    albumPopularityMap.set(track.album.id, currentPop + (track.popularity || 0));
+    
+    // Track artists for this album
+    if (!albumArtistMap.has(track.album.id)) {
+      albumArtistMap.set(track.album.id, new Set());
+    }
+    track.artists.forEach(artist => {
+      albumArtistMap.get(track.album.id)!.add(artist.id);
+    });
+  });
+  
+  // Sort albums by popularity and create nodes for top albums
+  const sortedAlbumIds = Array.from(albumPopularityMap.keys())
+    .sort((a, b) => albumPopularityMap.get(b)! - albumPopularityMap.get(a)!);
+  
+  sortedAlbumIds.slice(0, albumNodeCount).forEach(albumId => {
+    const albumTracks = albumTrackMap.get(albumId) || [];
+    if (albumTracks.length === 0) return;
+    
+    const firstTrack = albumTracks[0];
+    const albumPopularity = albumTracks.reduce((sum, t) => sum + t.popularity, 0) / albumTracks.length;
+    
+    const albumNodeId = `album-${albumId}`;
+    const albumNode: ForceTreeNode = {
+      id: albumNodeId,
+      name: firstTrack.album.name,
+      type: 'album',
+      value: albumPopularity,
+      popularity: albumPopularity,
+      imageUrl: firstTrack.album.images?.[0]?.url,
+      depth: 1.5, // Between artist and track
+      parent: undefined // Will be set below
+    };
+    
+    nodes.push(albumNode);
+    nodeMap.set(albumNodeId, albumNode);
+    albumMap.set(albumId, albumNode);
+    
+    // Create invisible album clustering node
+    const albumClusterId = `album-cluster-${albumId}`;
+    const albumClusterNode: ForceTreeNode = {
+      id: albumClusterId,
+      name: `${firstTrack.album.name} cluster`,
+      type: 'album-cluster',
+      value: albumPopularity,
+      depth: 1.7,
+      invisible: true,
+    };
+    nodes.push(albumClusterNode);
+    nodeMap.set(albumClusterId, albumClusterNode);
+    
+    // Link album to its artists
+    let primaryArtist: string | null = null;
+    albumArtistMap.get(albumId)!.forEach(artistId => {
+      const artistNodeId = `artist-${artistId}`;
+      if (nodeMap.has(artistNodeId)) {
+        // Set first artist as primary parent
+        if (!primaryArtist) {
+          primaryArtist = artistNodeId;
+          albumNode.parent = artistNodeId;
+        }
+        
+        links.push({
+          source: artistNodeId,
+          target: albumNodeId,
+          value: albumPopularity,
+          type: 'artist-album'
+        });
+        
+        // Link to album clustering
+        links.push({
+          source: albumNodeId,
+          target: albumClusterId,
+          value: albumPopularity * 0.8,
+          type: 'cluster-album'
+        });
+      }
+    });
+  });
+
+  // Create track nodes and links
+  // Collect all unique tracks with their albums (if album exists) or artists
+  const allTracksWithParents: Array<[SpotifyTrack, ForceTreeNode]> = [];
+  
+  // First add tracks from created albums
+  albumMap.forEach((albumNode, albumId) => {
+    const albumTracks = albumTrackMap.get(albumId) || [];
+    albumTracks.forEach(track => {
+      if (!allTracksWithParents.find(([t, _]) => t.id === track.id)) {
+        allTracksWithParents.push([track, albumNode]);
+      }
+    });
+  });
+  
+  // Then add remaining tracks directly to artists (for albums that weren't created)
   nodes.filter(n => n.type === 'artist').forEach(artistNode => {
     const artistId = artistNode.id.replace('artist-', '');
     
@@ -228,19 +336,19 @@ export function processSpotifyDataToForceTree(
       }
     });
     
-    // Add unique tracks with their artist reference
+    // Add unique tracks that don't already have an album parent
     artistTracks.forEach(track => {
-      if (!allTracksWithArtists.find(([t, _]) => t.id === track.id)) {
-        allTracksWithArtists.push([track, artistNode]);
+      if (!allTracksWithParents.find(([t, _]) => t.id === track.id)) {
+        allTracksWithParents.push([track, artistNode]);
       }
     });
   });
   
   // Sort all tracks by popularity and take the top ones
-  allTracksWithArtists
+  allTracksWithParents
     .sort((a, b) => (b[0].popularity || 0) - (a[0].popularity || 0))
     .slice(0, trackNodeCount)
-    .forEach(([track, artistNode]) => {
+    .forEach(([track, parentNode]) => {
       const trackNodeId = `track-${track.id}`;
       const trackNode: ForceTreeNode = {
         id: trackNodeId,
@@ -250,39 +358,61 @@ export function processSpotifyDataToForceTree(
         popularity: track.popularity,
         imageUrl: track.album?.images?.[0]?.url,
         spotifyUrl: track.external_urls?.spotify,
-        depth: 2,
-        parent: artistNode.id
+        depth: parentNode.type === 'album' ? 2.5 : 2,
+        parent: parentNode.id
       };
       
       nodes.push(trackNode);
       nodeMap.set(trackNodeId, trackNode);
       
-      // Create link from artist to track
-      links.push({
-        source: artistNode.id,
-        target: trackNodeId,
-        value: track.popularity || 50,
-        type: 'artist-track'
-      });
-
-      // Link tracks to genre clustering nodes for natural grouping
-      const artistId = artistNode.id.replace('artist-', '');
-      const artist = artistMap.get(artistId);
-      if (artist) {
-        artist.genres.forEach(genre => {
-          if (sortedGenres.includes(genre)) {
-            const clusterId = `cluster-${genre}`;
-            if (nodeMap.has(clusterId)) {
-              links.push({
-                source: trackNodeId,
-                target: clusterId,
-                value: (track.popularity || 50) * 0.6, // Medium clustering force for tracks
-                type: 'cluster-track'
-              });
-            }
-          }
+      // Create link from parent (album or artist) to track
+      if (parentNode.type === 'album') {
+        links.push({
+          source: parentNode.id,
+          target: trackNodeId,
+          value: track.popularity || 50,
+          type: 'album-track'
+        });
+        
+        // Also link to album clustering
+        const albumClusterId = `album-cluster-${track.album.id}`;
+        if (nodeMap.has(albumClusterId)) {
+          links.push({
+            source: trackNodeId,
+            target: albumClusterId,
+            value: (track.popularity || 50) * 0.5,
+            type: 'cluster-track'
+          });
+        }
+      } else {
+        // Direct artist to track link
+        links.push({
+          source: parentNode.id,
+          target: trackNodeId,
+          value: track.popularity || 50,
+          type: 'artist-track'
         });
       }
+
+      // Link tracks to genre clustering nodes for natural grouping
+      track.artists.forEach(trackArtist => {
+        const artist = artistMap.get(trackArtist.id);
+        if (artist) {
+          artist.genres.forEach(genre => {
+            if (sortedGenres.includes(genre)) {
+              const clusterId = `cluster-${genre}`;
+              if (nodeMap.has(clusterId)) {
+                links.push({
+                  source: trackNodeId,
+                  target: clusterId,
+                  value: (track.popularity || 50) * 0.6, // Medium clustering force for tracks
+                  type: 'cluster-track'
+                });
+              }
+            }
+          });
+        }
+      });
     });
 
   return { nodes, links };

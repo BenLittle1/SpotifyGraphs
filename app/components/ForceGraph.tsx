@@ -13,14 +13,24 @@ interface ForceGraphProps {
 
 const ForceGraph: React.FC<ForceGraphProps> = ({ data, width = 1200, height = 800, viewMode = 'network' }) => {
   const svgRef = useRef<SVGSVGElement>(null);
-  const [dynamicMode, setDynamicMode] = useState<boolean>(false);
+    const [dynamicMode, setDynamicMode] = useState<boolean>(false);
   const [trackClustering, setTrackClustering] = useState<boolean>(false);
   const [artistClustering, setArtistClustering] = useState<boolean>(true);
-
+  const [albumClustering, setAlbumClustering] = useState<boolean>(true);
+  
+  // Layer visibility toggles
+  const [showGenres, setShowGenres] = useState<boolean>(true);
+  const [showArtists, setShowArtists] = useState<boolean>(true);
+  const [showAlbums, setShowAlbums] = useState<boolean>(true);
+  const [showTracks, setShowTracks] = useState<boolean>(true);
+  
   const [linkOpacities, setLinkOpacities] = useState({
     'genre-artist': 0.6,
+    'artist-album': 0.7,
+    'album-track': 0.8,
     'artist-track': 0.8,
     'cluster-artist': 0.4,
+    'cluster-album': 0.4,
     'cluster-track': 0.3,
     'genre-cluster': 0.5,
   });
@@ -35,9 +45,11 @@ const ForceGraph: React.FC<ForceGraphProps> = ({ data, width = 1200, height = 80
     const colorScale = {
       genre: '#FF10F0', // neon-pink
       artist: '#A855F7', // dark neon purple
+      album: '#10FF80', // neon green for albums
       track: '#0080FF', // vibrant electric blue
       cluster: '#FFFFFF', // invisible artist clustering nodes
       'genre-cluster': '#FFFFFF', // invisible genre clustering nodes
+      'album-cluster': '#FFFFFF', // invisible album clustering nodes
     };
 
     // Create container for zoom
@@ -79,8 +91,8 @@ const ForceGraph: React.FC<ForceGraphProps> = ({ data, width = 1200, height = 80
       .force('link', d3.forceLink<GraphNode, GraphLink>()
         .id((d) => d.id)
         .distance((d) => {
-          const source = data.nodes.find(n => n.id === (d.source as any).id || n.id === d.source);
-          const target = data.nodes.find(n => n.id === (d.target as any).id || n.id === d.target);
+          const source = filteredNodes.find(n => n.id === (d.source as any).id || n.id === d.source);
+          const target = filteredNodes.find(n => n.id === (d.target as any).id || n.id === d.target);
           
           if (isHierarchical) {
             // Radial distances for circular clustering
@@ -103,8 +115,8 @@ const ForceGraph: React.FC<ForceGraphProps> = ({ data, width = 1200, height = 80
         })
         .strength((d) => {
           if (isHierarchical) {
-            const source = data.nodes.find(n => n.id === (d.source as any).id || n.id === d.source);
-            const target = data.nodes.find(n => n.id === (d.target as any).id || n.id === d.target);
+            const source = filteredNodes.find(n => n.id === (d.source as any).id || n.id === d.source);
+            const target = filteredNodes.find(n => n.id === (d.target as any).id || n.id === d.target);
             
             // Strong attraction for parent-child relationships
             if ((source?.group === 'genre' && target?.group === 'artist') ||
@@ -123,7 +135,7 @@ const ForceGraph: React.FC<ForceGraphProps> = ({ data, width = 1200, height = 80
       .force('charge', d3.forceManyBody<GraphNode>()
         .strength((d) => {
           // Clustering nodes have minimal charge to avoid interference
-          if (d.group === 'cluster' || d.group === 'genre-cluster') {
+          if (d.group === 'cluster' || d.group === 'genre-cluster' || d.group === 'album-cluster') {
             return -10; // Very weak repulsion
           }
           
@@ -137,6 +149,10 @@ const ForceGraph: React.FC<ForceGraphProps> = ({ data, width = 1200, height = 80
               const radius = Math.max(15, Math.min(30, (d.popularity || 50) / 3.3));
               return -400 - radius * 5; // Medium repulsion
             }
+            if (d.group === 'album') {
+              const radius = Math.max(12, Math.min(25, (d.popularity || 50) / 4));
+              return -250 - radius * 4; // Medium-light repulsion for albums
+            }
             const radius = Math.max(8, Math.min(15, (d.popularity || 50) / 6.7));
             return -150 - radius * 3; // Light repulsion for small track nodes
           }
@@ -144,13 +160,16 @@ const ForceGraph: React.FC<ForceGraphProps> = ({ data, width = 1200, height = 80
           if (d.group === 'genre') {
             return genreChargeStrength - (d.radius || 10) * 5;
           }
+          if (d.group === 'album') {
+            return chargeStrength * 0.7 - (d.radius || 10) * 2;
+          }
           return chargeStrength - (d.radius || 10) * 2;
         })
         .distanceMax(isHierarchical ? 600 : distanceMax))
       .force('collision', d3.forceCollide<GraphNode>()
         .radius((d) => {
           // Clustering nodes have minimal collision radius
-          if (d.group === 'cluster' || d.group === 'genre-cluster') {
+          if (d.group === 'cluster' || d.group === 'genre-cluster' || d.group === 'album-cluster') {
             return 1; // Very small collision radius
           }
           
@@ -161,6 +180,8 @@ const ForceGraph: React.FC<ForceGraphProps> = ({ data, width = 1200, height = 80
               radius = 30 + (d.radius || 20) * 0.5;
             } else if (d.group === 'artist') {
               radius = Math.max(15, Math.min(30, (d.popularity || 50) / 3.3));
+            } else if (d.group === 'album') {
+              radius = Math.max(12, Math.min(25, (d.popularity || 50) / 4));
             } else {
               radius = Math.max(8, Math.min(15, (d.popularity || 50) / 6.7));
             }
@@ -184,10 +205,10 @@ const ForceGraph: React.FC<ForceGraphProps> = ({ data, width = 1200, height = 80
       const nodeParents = new Map<string, string>();
       
       // Map artists to their primary genre (first genre)
-      data.nodes.filter(n => n.group === 'artist').forEach(artist => {
+      filteredNodes.filter(n => n.group === 'artist').forEach(artist => {
         const genreLink = data.links.find(l => 
-          (l.source === artist.id && data.nodes.find(n => n.id === l.target)?.group === 'genre') ||
-          (l.target === artist.id && data.nodes.find(n => n.id === l.source)?.group === 'genre')
+          (l.source === artist.id && filteredNodes.find(n => n.id === l.target)?.group === 'genre') ||
+          (l.target === artist.id && filteredNodes.find(n => n.id === l.source)?.group === 'genre')
         );
         if (genreLink) {
           const genreId = genreLink.source === artist.id ? genreLink.target : genreLink.source;
@@ -195,15 +216,38 @@ const ForceGraph: React.FC<ForceGraphProps> = ({ data, width = 1200, height = 80
         }
       });
       
-      // Map tracks to their primary artist (first artist)
-      data.nodes.filter(n => n.group === 'track').forEach(track => {
+      // Map albums to their primary artist (first artist)
+      filteredNodes.filter(n => n.group === 'album').forEach(album => {
         const artistLink = data.links.find(l => 
-          (l.source === track.id && data.nodes.find(n => n.id === l.target)?.group === 'artist') ||
-          (l.target === track.id && data.nodes.find(n => n.id === l.source)?.group === 'artist')
+          (l.source === album.id && filteredNodes.find(n => n.id === l.target)?.group === 'artist') ||
+          (l.target === album.id && filteredNodes.find(n => n.id === l.source)?.group === 'artist')
         );
         if (artistLink) {
-          const artistId = artistLink.source === track.id ? artistLink.target : artistLink.source;
-          nodeParents.set(track.id, artistId as string);
+          const artistId = artistLink.source === album.id ? artistLink.target : artistLink.source;
+          nodeParents.set(album.id, artistId as string);
+        }
+      });
+      
+      // Map tracks to their primary parent (album or artist)
+      filteredNodes.filter(n => n.group === 'track').forEach(track => {
+        // First try to find album link
+        const albumLink = data.links.find(l => 
+          (l.source === track.id && filteredNodes.find(n => n.id === l.target)?.group === 'album') ||
+          (l.target === track.id && filteredNodes.find(n => n.id === l.source)?.group === 'album')
+        );
+        if (albumLink) {
+          const albumId = albumLink.source === track.id ? albumLink.target : albumLink.source;
+          nodeParents.set(track.id, albumId as string);
+        } else {
+          // Fallback to artist link
+          const artistLink = data.links.find(l => 
+            (l.source === track.id && filteredNodes.find(n => n.id === l.target)?.group === 'artist') ||
+            (l.target === track.id && filteredNodes.find(n => n.id === l.source)?.group === 'artist')
+          );
+          if (artistLink) {
+            const artistId = artistLink.source === track.id ? artistLink.target : artistLink.source;
+            nodeParents.set(track.id, artistId as string);
+          }
         }
       });
       
@@ -214,7 +258,7 @@ const ForceGraph: React.FC<ForceGraphProps> = ({ data, width = 1200, height = 80
       
       // Custom positioning force
       const positionForce = (alpha: number) => {
-        data.nodes.forEach((d: GraphNode) => {
+        filteredNodes.forEach((d: GraphNode) => {
           if (d.group === 'genre') {
             // Position genres in a circle
             const index = genres.findIndex(g => g.id === d.id);
@@ -228,7 +272,7 @@ const ForceGraph: React.FC<ForceGraphProps> = ({ data, width = 1200, height = 80
             // Position artists around their genre
             const parentId = nodeParents.get(d.id);
             if (parentId) {
-              const parent = data.nodes.find(n => n.id === parentId);
+              const parent = filteredNodes.find(n => n.id === parentId);
               if (parent && parent.x !== undefined && parent.y !== undefined) {
                 const dx = (d.x || 0) - parent.x;
                 const dy = (d.y || 0) - parent.y;
@@ -243,17 +287,36 @@ const ForceGraph: React.FC<ForceGraphProps> = ({ data, width = 1200, height = 80
                 }
               }
             }
-          } else if (d.group === 'track') {
-            // Position tracks around their artist
+          } else if (d.group === 'album') {
+            // Position albums around their artist
             const parentId = nodeParents.get(d.id);
             if (parentId) {
-              const parent = data.nodes.find(n => n.id === parentId);
+              const parent = filteredNodes.find(n => n.id === parentId);
               if (parent && parent.x !== undefined && parent.y !== undefined) {
                 const dx = (d.x || 0) - parent.x;
                 const dy = (d.y || 0) - parent.y;
                 const distance = Math.sqrt(dx * dx + dy * dy);
-                // Adjusted distance for medium artist nodes
-                const targetDistance = 70;
+                // Distance for albums around artists
+                const targetDistance = 100;
+                
+                if (distance > 0) {
+                  const factor = (targetDistance - distance) / distance * alpha * 0.3;
+                  d.vx = (d.vx || 0) + dx * factor;
+                  d.vy = (d.vy || 0) + dy * factor;
+                }
+              }
+            }
+          } else if (d.group === 'track') {
+            // Position tracks around their parent (album or artist)
+            const parentId = nodeParents.get(d.id);
+            if (parentId) {
+              const parent = filteredNodes.find(n => n.id === parentId);
+              if (parent && parent.x !== undefined && parent.y !== undefined) {
+                const dx = (d.x || 0) - parent.x;
+                const dy = (d.y || 0) - parent.y;
+                const distance = Math.sqrt(dx * dx + dy * dy);
+                // Adjusted distance based on parent type
+                const targetDistance = parent.group === 'album' ? 50 : 70;
                 
                 if (distance > 0) {
                   const factor = (targetDistance - distance) / distance * alpha * 0.3;
@@ -272,17 +335,48 @@ const ForceGraph: React.FC<ForceGraphProps> = ({ data, width = 1200, height = 80
       simulation.force('center', d3.forceCenter(width / 2, height / 2).strength(0.02));
     }
 
-    // Filter links based on clustering settings
+    // Filter nodes based on visibility settings
+    const visibleNodeIds = new Set<string>();
+    data.nodes.forEach(node => {
+      if (node.invisible) {
+        visibleNodeIds.add(node.id); // Always include invisible nodes for physics
+      } else if (node.group === 'genre' && showGenres) {
+        visibleNodeIds.add(node.id);
+      } else if (node.group === 'artist' && showArtists) {
+        visibleNodeIds.add(node.id);
+      } else if (node.group === 'album' && showAlbums) {
+        visibleNodeIds.add(node.id);
+      } else if (node.group === 'track' && showTracks) {
+        visibleNodeIds.add(node.id);
+      }
+    });
+
+    // Filter links based on clustering settings and node visibility
     const filteredLinks = data.links.filter(link => {
+      const sourceId = typeof link.source === 'string' ? link.source : (link.source as any).id;
+      const targetId = typeof link.target === 'string' ? link.target : (link.target as any).id;
+      
+      // Both nodes must be visible
+      if (!visibleNodeIds.has(sourceId) || !visibleNodeIds.has(targetId)) {
+        return false;
+      }
+      
+      // Check clustering settings
       if (!trackClustering && link.type === 'cluster-track') {
-        return false; // Hide cluster-track links when track clustering is disabled
+        return false;
       }
       if (!artistClustering && link.type === 'cluster-artist') {
-        return false; // Hide cluster-artist links when artist clustering is disabled
+        return false;
       }
-      // Genre clustering is always enabled
+      if (!albumClustering && link.type === 'cluster-album') {
+        return false;
+      }
+      
       return true;
     });
+    
+    // Filter nodes based on visibility
+    const filteredNodes = data.nodes.filter(node => visibleNodeIds.has(node.id));
 
     // Create links with dynamic opacity
     const link = container.append('g')
@@ -297,7 +391,7 @@ const ForceGraph: React.FC<ForceGraphProps> = ({ data, width = 1200, height = 80
       .attr('stroke-width', (d) => d.strength * (isSmall ? 1.5 : 1));
 
     // Create node groups (filter out invisible clustering nodes)
-    const visibleNodes = data.nodes.filter(node => !node.invisible);
+    const visibleNodes = filteredNodes.filter(node => !node.invisible);
     const node = container.append('g')
       .selectAll('g')
       .data(visibleNodes)
@@ -311,13 +405,16 @@ const ForceGraph: React.FC<ForceGraphProps> = ({ data, width = 1200, height = 80
     node.append('circle')
       .attr('r', (d) => {
         if (isHierarchical) {
-          // Hierarchical view: genres largest, artists medium, tracks smallest
+          // Hierarchical view: genres largest, artists medium, albums medium-small, tracks smallest
           if (d.group === 'genre') {
             // Genres: 30-50 radius
             return 30 + (d.radius || 20) * 0.5;
           } else if (d.group === 'artist') {
             // Artists: 15-30 radius based on popularity
             return Math.max(15, Math.min(30, (d.popularity || 50) / 3.3));
+          } else if (d.group === 'album') {
+            // Albums: 12-25 radius based on popularity
+            return Math.max(12, Math.min(25, (d.popularity || 50) / 4));
           } else {
             // Tracks: 8-15 radius based on popularity
             return Math.max(8, Math.min(15, (d.popularity || 50) / 6.7));
@@ -343,6 +440,8 @@ const ForceGraph: React.FC<ForceGraphProps> = ({ data, width = 1200, height = 80
             radius = 30 + (d.radius || 20) * 0.5;
           } else if (d.group === 'artist') {
             radius = Math.max(15, Math.min(30, (d.popularity || 50) / 3.3));
+          } else if (d.group === 'album') {
+            radius = Math.max(12, Math.min(25, (d.popularity || 50) / 4));
           } else {
             radius = Math.max(8, Math.min(15, (d.popularity || 50) / 6.7));
           }
@@ -401,9 +500,9 @@ const ForceGraph: React.FC<ForceGraphProps> = ({ data, width = 1200, height = 80
       const parents = new Set<string>();
       const children = new Set<string>();
       
-      // Only consider hierarchical links (genre-artist, artist-track), not clustering links
+      // Only consider hierarchical links (genre-artist, artist-album, album-track, artist-track), not clustering links
       const hierarchicalLinks = data.links.filter(link => 
-        link.type === 'genre-artist' || link.type === 'artist-track'
+        link.type === 'genre-artist' || link.type === 'artist-album' || link.type === 'album-track' || link.type === 'artist-track'
       );
       
       hierarchicalLinks.forEach(link => {
@@ -434,7 +533,7 @@ const ForceGraph: React.FC<ForceGraphProps> = ({ data, width = 1200, height = 80
         const targetId = typeof link.target === 'string' ? link.target : (link.target as any).id;
         
         // Only include hierarchical links between relevant nodes
-        if ((link.type === 'genre-artist' || link.type === 'artist-track') &&
+        if ((link.type === 'genre-artist' || link.type === 'artist-album' || link.type === 'album-track' || link.type === 'artist-track') &&
             allRelevantNodes.has(sourceId) && allRelevantNodes.has(targetId)) {
           verticalLinks.add(index.toString());
         }
@@ -465,6 +564,8 @@ const ForceGraph: React.FC<ForceGraphProps> = ({ data, width = 1200, height = 80
               baseRadius = 30 + (nodeData.radius || 20) * 0.5;
             } else if (nodeData.group === 'artist') {
               baseRadius = Math.max(15, Math.min(30, (nodeData.popularity || 50) / 3.3));
+            } else if (nodeData.group === 'album') {
+              baseRadius = Math.max(12, Math.min(25, (nodeData.popularity || 50) / 4));
             } else {
               baseRadius = Math.max(8, Math.min(15, (nodeData.popularity || 50) / 6.7));
             }
@@ -517,27 +618,65 @@ const ForceGraph: React.FC<ForceGraphProps> = ({ data, width = 1200, height = 80
 
       // Show enhanced tooltip with hierarchical path information
       const getHierarchicalPath = (nodeId: string): string => {
-        const node = data.nodes.find(n => n.id === nodeId);
+        const node = filteredNodes.find(n => n.id === nodeId);
         if (!node) return '';
         
         if (node.group === 'track') {
-          // Track: find artist parent, then genre grandparent
-          const artistParent = Array.from(parents).find(id => data.nodes.find(n => n.id === id)?.group === 'artist');
+          // Track: build full hierarchy path
+          let path = node.name;
+          let currentId = nodeId;
+          let currentParents = parents;
+          
+          // First check for album parent
+          const albumParent = Array.from(currentParents).find(id => filteredNodes.find(n => n.id === id)?.group === 'album');
+          if (albumParent) {
+            const albumNode = filteredNodes.find(n => n.id === albumParent);
+            if (albumNode) {
+              path = `${albumNode.name} → ${path}`;
+              const { parents: albumParents } = findVerticalNodes(albumParent);
+              currentParents = albumParents;
+            }
+          }
+          
+          // Then check for artist parent
+          const artistParent = Array.from(currentParents).find(id => filteredNodes.find(n => n.id === id)?.group === 'artist');
           if (artistParent) {
-            const artistNode = data.nodes.find(n => n.id === artistParent);
+            const artistNode = filteredNodes.find(n => n.id === artistParent);
+            if (artistNode) {
+              path = `${artistNode.name} → ${path}`;
+              const { parents: artistParents } = findVerticalNodes(artistParent);
+              currentParents = artistParents;
+            }
+          }
+          
+          // Finally check for genre
+          const genreParent = Array.from(currentParents).find(id => filteredNodes.find(n => n.id === id)?.group === 'genre');
+          if (genreParent) {
+            const genreNode = filteredNodes.find(n => n.id === genreParent);
+            if (genreNode) {
+              path = `${genreNode.name} → ${path}`;
+            }
+          }
+          
+          return path;
+        } else if (node.group === 'album') {
+          // Album: find artist parent, then genre
+          const artistParent = Array.from(parents).find(id => filteredNodes.find(n => n.id === id)?.group === 'artist');
+          if (artistParent) {
+            const artistNode = filteredNodes.find(n => n.id === artistParent);
             const { parents: artistParents } = findVerticalNodes(artistParent);
-            const genreGrandparent = Array.from(artistParents).find(id => data.nodes.find(n => n.id === id)?.group === 'genre');
+            const genreGrandparent = Array.from(artistParents).find(id => filteredNodes.find(n => n.id === id)?.group === 'genre');
             if (genreGrandparent) {
-              const genreNode = data.nodes.find(n => n.id === genreGrandparent);
+              const genreNode = filteredNodes.find(n => n.id === genreGrandparent);
               return `${genreNode?.name} → ${artistNode?.name} → ${node.name}`;
             }
             return `${artistNode?.name} → ${node.name}`;
           }
         } else if (node.group === 'artist') {
           // Artist: find genre parent
-          const genreParent = Array.from(parents).find(id => data.nodes.find(n => n.id === id)?.group === 'genre');
+          const genreParent = Array.from(parents).find(id => filteredNodes.find(n => n.id === id)?.group === 'genre');
           if (genreParent) {
-            const genreNode = data.nodes.find(n => n.id === genreParent);
+            const genreNode = filteredNodes.find(n => n.id === genreParent);
             return `${genreNode?.name} → ${node.name}`;
           }
         }
@@ -552,7 +691,7 @@ const ForceGraph: React.FC<ForceGraphProps> = ({ data, width = 1200, height = 80
       tooltip.html(`
         <div style="color: ${colorScale[d.group]}">
           <strong>${d.name}</strong><br/>
-          ${d.group === 'track' || d.group === 'artist' ? `Popularity: ${d.popularity}<br/>` : ''}
+          ${d.group === 'track' || d.group === 'artist' || d.group === 'album' ? `Popularity: ${d.popularity}<br/>` : ''}
           <div style="font-size: 12px; opacity: 0.8;">Path: ${getHierarchicalPath(d.id)}</div>
         </div>
       `);
@@ -575,6 +714,8 @@ const ForceGraph: React.FC<ForceGraphProps> = ({ data, width = 1200, height = 80
               return 30 + (d.radius || 20) * 0.5;
             } else if (d.group === 'artist') {
               return Math.max(15, Math.min(30, (d.popularity || 50) / 3.3));
+            } else if (d.group === 'album') {
+              return Math.max(12, Math.min(25, (d.popularity || 50) / 4));
             } else {
               return Math.max(8, Math.min(15, (d.popularity || 50) / 6.7));
             }
@@ -647,7 +788,7 @@ const ForceGraph: React.FC<ForceGraphProps> = ({ data, width = 1200, height = 80
     });
 
     // Set simulation nodes and links
-    simulation.nodes(data.nodes);
+    simulation.nodes(filteredNodes);
     (simulation.force('link') as d3.ForceLink<GraphNode, GraphLink>).links(filteredLinks);
 
     // Update positions on tick with dynamic frequency
@@ -691,7 +832,7 @@ const ForceGraph: React.FC<ForceGraphProps> = ({ data, width = 1200, height = 80
       simulation.stop();
       tooltip.remove();
     };
-  }, [data, width, height, viewMode, dynamicMode, linkOpacities, trackClustering, artistClustering]);
+  }, [data, width, height, viewMode, dynamicMode, linkOpacities, trackClustering, artistClustering, albumClustering, showGenres, showArtists, showAlbums, showTracks]);
 
   return (
     <div className="relative">
@@ -788,7 +929,85 @@ const ForceGraph: React.FC<ForceGraphProps> = ({ data, width = 1200, height = 80
         )}
       </div>
 
-
+      {/* Right Panel - Layer Visibility */}
+      <div className="absolute top-4 right-4 z-20 bg-gray-800 p-3 rounded-lg border border-gray-600 space-y-3">
+        <div className="text-white text-sm font-semibold mb-2">Layer Visibility</div>
+        
+        <label className="flex items-center space-x-2 text-white text-sm">
+          <input
+            type="checkbox"
+            checked={showGenres}
+            onChange={(e) => setShowGenres(e.target.checked)}
+            className="w-4 h-4 text-pink-600 bg-gray-700 border-gray-600 rounded focus:ring-pink-500 focus:ring-2"
+          />
+          <span style={{ color: '#FF10F0' }}>Genres</span>
+        </label>
+        
+        <label className="flex items-center space-x-2 text-white text-sm">
+          <input
+            type="checkbox"
+            checked={showArtists}
+            onChange={(e) => setShowArtists(e.target.checked)}
+            className="w-4 h-4 text-purple-600 bg-gray-700 border-gray-600 rounded focus:ring-purple-500 focus:ring-2"
+          />
+          <span style={{ color: '#A855F7' }}>Artists</span>
+        </label>
+        
+        <label className="flex items-center space-x-2 text-white text-sm">
+          <input
+            type="checkbox"
+            checked={showAlbums}
+            onChange={(e) => setShowAlbums(e.target.checked)}
+            className="w-4 h-4 text-green-600 bg-gray-700 border-gray-600 rounded focus:ring-green-500 focus:ring-2"
+          />
+          <span style={{ color: '#10FF80' }}>Albums</span>
+        </label>
+        
+        <label className="flex items-center space-x-2 text-white text-sm">
+          <input
+            type="checkbox"
+            checked={showTracks}
+            onChange={(e) => setShowTracks(e.target.checked)}
+            className="w-4 h-4 text-blue-600 bg-gray-700 border-gray-600 rounded focus:ring-blue-500 focus:ring-2"
+          />
+          <span style={{ color: '#0080FF' }}>Tracks</span>
+        </label>
+        
+        {/* Album Clustering - Only show when albums are visible */}
+        {showAlbums && (
+          <>
+            <div className="border-t border-gray-600 pt-2 mt-2">
+              <label className="flex items-center space-x-2 text-white text-sm">
+                <input
+                  type="checkbox"
+                  checked={albumClustering}
+                  onChange={(e) => setAlbumClustering(e.target.checked)}
+                  className="w-4 h-4 text-green-600 bg-gray-700 border-gray-600 rounded focus:ring-green-500 focus:ring-2"
+                />
+                <span>Album Clustering</span>
+              </label>
+            </div>
+            
+            {albumClustering && (
+              <div className="space-y-2">
+                <div className="flex items-center space-x-2">
+                  <span className="text-xs text-gray-300 w-20">Cluster↔Album</span>
+                  <input
+                    type="range"
+                    min="0"
+                    max="1"
+                    step="0.1"
+                    value={linkOpacities['cluster-album']}
+                    onChange={(e) => setLinkOpacities(prev => ({...prev, 'cluster-album': parseFloat(e.target.value)}))}
+                    className="w-16 h-1 bg-gray-700 rounded-lg appearance-none cursor-pointer"
+                  />
+                  <span className="text-xs text-gray-400 w-8">{linkOpacities['cluster-album']}</span>
+                </div>
+              </div>
+            )}
+          </>
+        )}
+      </div>
       
       <svg
         ref={svgRef}

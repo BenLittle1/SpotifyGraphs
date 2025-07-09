@@ -39,14 +39,24 @@ const ForceTree: React.FC<ForceTreeProps> = ({
   const [downstreamNodes, setDownstreamNodes] = useState<Set<string>>(new Set());
   const [upstreamNodes, setUpstreamNodes] = useState<Set<string>>(new Set());
   const [expandedNodes, setExpandedNodes] = useState<Set<string>>(new Set());
-  const [dynamicMode, setDynamicMode] = useState<boolean>(false);
+    const [dynamicMode, setDynamicMode] = useState<boolean>(false);
   const [trackClustering, setTrackClustering] = useState<boolean>(false);
   const [artistClustering, setArtistClustering] = useState<boolean>(true);
-
+  const [albumClustering, setAlbumClustering] = useState<boolean>(true);
+  
+  // Layer visibility toggles
+  const [showGenres, setShowGenres] = useState<boolean>(true);
+  const [showArtists, setShowArtists] = useState<boolean>(true);
+  const [showAlbums, setShowAlbums] = useState<boolean>(true);
+  const [showTracks, setShowTracks] = useState<boolean>(true);
+  
   const [linkOpacities, setLinkOpacities] = useState({
     'genre-artist': 0.6,
+    'artist-album': 0.7,
+    'album-track': 0.8,
     'artist-track': 0.8,
     'cluster-artist': 0.4,
+    'cluster-album': 0.4,
     'cluster-track': 0.3,
     'genre-cluster': 0.5,
   });
@@ -63,9 +73,9 @@ const ForceTree: React.FC<ForceTreeProps> = ({
       const parents = new Set<string>();
       const children = new Set<string>();
       
-      // Only consider hierarchical links (genre-artist, artist-track), not clustering links
+      // Only consider hierarchical links (genre-artist, artist-album, album-track, artist-track), not clustering links
       const hierarchicalLinks = data.links.filter(link => 
-        link.type === 'genre-artist' || link.type === 'artist-track'
+        link.type === 'genre-artist' || link.type === 'artist-album' || link.type === 'album-track' || link.type === 'artist-track'
       );
       
       hierarchicalLinks.forEach(link => {
@@ -109,9 +119,11 @@ const ForceTree: React.FC<ForceTreeProps> = ({
     const nodeColors: { [key: string]: string } = {
       genre: '#ff00ff', // Magenta/Pink for genres
       artist: '#A855F7', // Dark neon purple for artists
+      album: '#10FF80', // Neon green for albums
       track: '#0080FF', // Vibrant electric blue for tracks
       cluster: '#FFFFFF', // Invisible artist clustering nodes
-      'genre-cluster': '#FFFFFF' // Invisible genre clustering nodes
+      'genre-cluster': '#FFFFFF', // Invisible genre clustering nodes
+      'album-cluster': '#FFFFFF' // Invisible album clustering nodes
     };
 
     // Size scales
@@ -131,6 +143,8 @@ const ForceTree: React.FC<ForceTreeProps> = ({
           const sourceNode = data.nodes.find(n => n.id === (d.source as any).id || d.source);
           const targetNode = data.nodes.find(n => n.id === (d.target as any).id || d.target);
           if (sourceNode?.type === 'genre' && targetNode?.type === 'artist') return 150 * linkDistance;
+          if (sourceNode?.type === 'artist' && targetNode?.type === 'album') return 100 * linkDistance;
+          if (sourceNode?.type === 'album' && targetNode?.type === 'track') return 60 * linkDistance;
           if (sourceNode?.type === 'artist' && targetNode?.type === 'track') return 80 * linkDistance;
           return 100 * linkDistance;
         })
@@ -138,7 +152,7 @@ const ForceTree: React.FC<ForceTreeProps> = ({
       .force('charge', d3.forceManyBody<ForceTreeNode>()
         .strength(d => {
           // Clustering nodes have minimal charge to avoid interference
-          if (d.type === 'cluster' || d.type === 'genre-cluster') {
+          if (d.type === 'cluster' || d.type === 'genre-cluster' || d.type === 'album-cluster') {
             return -10; // Very weak repulsion
           }
           
@@ -152,18 +166,21 @@ const ForceTree: React.FC<ForceTreeProps> = ({
           
           if (d.type === 'genre') return -1000 * scaleFactor * chargeStrength;
           if (d.type === 'artist') return -300 * scaleFactor * chargeStrength;
+          if (d.type === 'album') return -200 * scaleFactor * chargeStrength;
           return -100 * scaleFactor * chargeStrength;
         }))
       .force('center', d3.forceCenter(width / 2, height / 2).strength(gravity))
       .force('collision', d3.forceCollide<ForceTreeNode>()
         .radius(d => {
           // Clustering nodes have minimal collision radius
-          if (d.type === 'cluster' || d.type === 'genre-cluster') {
+          if (d.type === 'cluster' || d.type === 'genre-cluster' || d.type === 'album-cluster') {
             return 1; // Very small collision radius
           }
           
           const baseRadius = d.type === 'genre' ? 
             genreSizeScale(d.value) + 10 : 
+            d.type === 'album' ?
+            sizeScale(d.popularity || 50) + 8 :
             sizeScale(d.popularity || 50) + 5;
           return baseRadius * collisionRadius * nodeScale;
         }))
@@ -195,17 +212,48 @@ const ForceTree: React.FC<ForceTreeProps> = ({
 
     simulationRef.current = simulation;
 
-    // Filter links based on clustering settings
+    // Filter nodes based on visibility settings
+    const visibleNodeIds = new Set<string>();
+    data.nodes.forEach(node => {
+      if (node.invisible) {
+        visibleNodeIds.add(node.id); // Always include invisible nodes for physics
+      } else if (node.type === 'genre' && showGenres) {
+        visibleNodeIds.add(node.id);
+      } else if (node.type === 'artist' && showArtists) {
+        visibleNodeIds.add(node.id);
+      } else if (node.type === 'album' && showAlbums) {
+        visibleNodeIds.add(node.id);
+      } else if (node.type === 'track' && showTracks) {
+        visibleNodeIds.add(node.id);
+      }
+    });
+
+    // Filter links based on clustering settings and node visibility
     const filteredLinks = data.links.filter(link => {
+      const sourceId = typeof link.source === 'string' ? link.source : (link.source as any).id;
+      const targetId = typeof link.target === 'string' ? link.target : (link.target as any).id;
+      
+      // Both nodes must be visible
+      if (!visibleNodeIds.has(sourceId) || !visibleNodeIds.has(targetId)) {
+        return false;
+      }
+      
+      // Check clustering settings
       if (!trackClustering && link.type === 'cluster-track') {
-        return false; // Hide cluster-track links when track clustering is disabled
+        return false;
       }
       if (!artistClustering && link.type === 'cluster-artist') {
-        return false; // Hide cluster-artist links when artist clustering is disabled
+        return false;
       }
-      // Genre clustering is always enabled
+      if (!albumClustering && link.type === 'cluster-album') {
+        return false;
+      }
+      
       return true;
     });
+    
+    // Filter nodes based on visibility
+    const filteredNodes = data.nodes.filter(node => visibleNodeIds.has(node.id));
 
     // Create links
     const link = g.append('g')
@@ -222,7 +270,7 @@ const ForceTree: React.FC<ForceTreeProps> = ({
       .attr('stroke-width', d => Math.sqrt(d.value / 20));
 
     // Create node groups (filter out invisible clustering nodes)
-    const visibleNodes = data.nodes.filter(node => !node.invisible);
+    const visibleNodes = filteredNodes.filter(node => !node.invisible);
     const node = g.append('g')
       .attr('class', 'nodes')
       .selectAll('g')
@@ -346,7 +394,7 @@ const ForceTree: React.FC<ForceTreeProps> = ({
       .attr('in', 'SourceGraphic');
 
     // Update positions on tick
-    simulation.nodes(data.nodes).on('tick', () => {
+    simulation.nodes(filteredNodes).on('tick', () => {
       link
         .attr('x1', d => (d.source as any).x)
         .attr('y1', d => (d.source as any).y)
@@ -379,7 +427,7 @@ const ForceTree: React.FC<ForceTreeProps> = ({
     return () => {
       simulation.stop();
     };
-  }, [data, trackClustering, artistClustering]); // Re-render when data or clustering settings change
+  }, [data, trackClustering, artistClustering, albumClustering, showGenres, showArtists, showAlbums, showTracks]); // Re-render when data or clustering settings change
 
   // Update visual properties when sliders change
   useEffect(() => {
@@ -396,8 +444,8 @@ const ForceTree: React.FC<ForceTreeProps> = ({
           const sourceId = typeof l.source === 'string' ? l.source : (l.source as any).id;
           const targetId = typeof l.target === 'string' ? l.target : (l.target as any).id;
           
-          // Only highlight hierarchical links (genre-artist, artist-track)
-          if (l.type === 'genre-artist' || l.type === 'artist-track') {
+          // Only highlight hierarchical links (genre-artist, artist-album, album-track, artist-track)
+          if (l.type === 'genre-artist' || l.type === 'artist-album' || l.type === 'album-track' || l.type === 'artist-track') {
             const allVerticalNodes = new Set([hoveredNode.id, ...Array.from(downstreamNodes), ...Array.from(upstreamNodes)]);
             
             // Check if this link connects nodes in the vertical hierarchy
@@ -417,7 +465,7 @@ const ForceTree: React.FC<ForceTreeProps> = ({
           const targetId = typeof l.target === 'string' ? l.target : (l.target as any).id;
           
           // Only highlight hierarchical links
-          if (l.type === 'genre-artist' || l.type === 'artist-track') {
+          if (l.type === 'genre-artist' || l.type === 'artist-album' || l.type === 'album-track' || l.type === 'artist-track') {
             const allVerticalNodes = new Set([hoveredNode.id, ...Array.from(downstreamNodes), ...Array.from(upstreamNodes)]);
             
             if (allVerticalNodes.has(sourceId) && allVerticalNodes.has(targetId)) {
@@ -425,6 +473,7 @@ const ForceTree: React.FC<ForceTreeProps> = ({
               const nodeColors: { [key: string]: string } = {
                 genre: '#ff00ff',
                 artist: '#A855F7',
+                album: '#10FF80',
                 track: '#0080FF'
               };
               return sourceNode ? nodeColors[sourceNode.type as string] || '#444' : '#444';
@@ -475,6 +524,7 @@ const ForceTree: React.FC<ForceTreeProps> = ({
         const nodeColors: { [key: string]: string } = {
           genre: '#ff00ff',
           artist: '#A855F7',
+          album: '#10FF80',
           track: '#0080FF'
         };
         return nodeColors[d.type as string] || '#444';
@@ -533,6 +583,8 @@ const ForceTree: React.FC<ForceTreeProps> = ({
         
         // Normal distances
         if (sourceNode?.type === 'genre' && targetNode?.type === 'artist') return 150 * linkDistance;
+        if (sourceNode?.type === 'artist' && targetNode?.type === 'album') return 100 * linkDistance;
+        if (sourceNode?.type === 'album' && targetNode?.type === 'track') return 60 * linkDistance;
         if (sourceNode?.type === 'artist' && targetNode?.type === 'track') return 80 * linkDistance;
         return 100 * linkDistance;
       });
@@ -543,7 +595,7 @@ const ForceTree: React.FC<ForceTreeProps> = ({
       simulation.alpha(0.3).restart();
     }
 
-  }, [chargeStrength, collisionRadius, linkDistance, gravity, nodeScale, linkOpacity, data, width, height, expandedNodes, downstreamNodes, upstreamNodes, hoveredNode, dynamicMode, linkOpacities, trackClustering, artistClustering]);
+  }, [chargeStrength, collisionRadius, linkDistance, gravity, nodeScale, linkOpacity, data, width, height, expandedNodes, downstreamNodes, upstreamNodes, hoveredNode, dynamicMode, linkOpacities, trackClustering, artistClustering, albumClustering]);
 
   // Handle cluster expansion effect
   useEffect(() => {
@@ -614,6 +666,8 @@ const ForceTree: React.FC<ForceTreeProps> = ({
         
         // Normal distances
         if (sourceNode?.type === 'genre' && targetNode?.type === 'artist') return 150 * linkDistance;
+        if (sourceNode?.type === 'artist' && targetNode?.type === 'album') return 100 * linkDistance;
+        if (sourceNode?.type === 'album' && targetNode?.type === 'track') return 60 * linkDistance;
         if (sourceNode?.type === 'artist' && targetNode?.type === 'track') return 80 * linkDistance;
         return 100 * linkDistance;
       });
@@ -721,7 +775,85 @@ const ForceTree: React.FC<ForceTreeProps> = ({
         )}
       </div>
 
-
+      {/* Right Panel - Layer Visibility */}
+      <div className="absolute top-4 right-4 z-20 bg-gray-800 p-3 rounded-lg border border-gray-600 space-y-3">
+        <div className="text-white text-sm font-semibold mb-2">Layer Visibility</div>
+        
+        <label className="flex items-center space-x-2 text-white text-sm">
+          <input
+            type="checkbox"
+            checked={showGenres}
+            onChange={(e) => setShowGenres(e.target.checked)}
+            className="w-4 h-4 text-pink-600 bg-gray-700 border-gray-600 rounded focus:ring-pink-500 focus:ring-2"
+          />
+          <span style={{ color: '#ff00ff' }}>Genres</span>
+        </label>
+        
+        <label className="flex items-center space-x-2 text-white text-sm">
+          <input
+            type="checkbox"
+            checked={showArtists}
+            onChange={(e) => setShowArtists(e.target.checked)}
+            className="w-4 h-4 text-purple-600 bg-gray-700 border-gray-600 rounded focus:ring-purple-500 focus:ring-2"
+          />
+          <span style={{ color: '#A855F7' }}>Artists</span>
+        </label>
+        
+        <label className="flex items-center space-x-2 text-white text-sm">
+          <input
+            type="checkbox"
+            checked={showAlbums}
+            onChange={(e) => setShowAlbums(e.target.checked)}
+            className="w-4 h-4 text-green-600 bg-gray-700 border-gray-600 rounded focus:ring-green-500 focus:ring-2"
+          />
+          <span style={{ color: '#10FF80' }}>Albums</span>
+        </label>
+        
+        <label className="flex items-center space-x-2 text-white text-sm">
+          <input
+            type="checkbox"
+            checked={showTracks}
+            onChange={(e) => setShowTracks(e.target.checked)}
+            className="w-4 h-4 text-blue-600 bg-gray-700 border-gray-600 rounded focus:ring-blue-500 focus:ring-2"
+          />
+          <span style={{ color: '#0080FF' }}>Tracks</span>
+        </label>
+        
+        {/* Album Clustering - Only show when albums are visible */}
+        {showAlbums && (
+          <>
+            <div className="border-t border-gray-600 pt-2 mt-2">
+              <label className="flex items-center space-x-2 text-white text-sm">
+                <input
+                  type="checkbox"
+                  checked={albumClustering}
+                  onChange={(e) => setAlbumClustering(e.target.checked)}
+                  className="w-4 h-4 text-green-600 bg-gray-700 border-gray-600 rounded focus:ring-green-500 focus:ring-2"
+                />
+                <span>Album Clustering</span>
+              </label>
+            </div>
+            
+            {albumClustering && (
+              <div className="space-y-2">
+                <div className="flex items-center space-x-2">
+                  <span className="text-xs text-gray-300 w-20">Cluster↔Album</span>
+                  <input
+                    type="range"
+                    min="0"
+                    max="1"
+                    step="0.1"
+                    value={linkOpacities['cluster-album']}
+                    onChange={(e) => setLinkOpacities(prev => ({...prev, 'cluster-album': parseFloat(e.target.value)}))}
+                    className="w-16 h-1 bg-gray-700 rounded-lg appearance-none cursor-pointer"
+                  />
+                  <span className="text-xs text-gray-400 w-8">{linkOpacities['cluster-album']}</span>
+                </div>
+              </div>
+            )}
+          </>
+        )}
+      </div>
       
       <svg
         ref={svgRef}
@@ -740,7 +872,8 @@ const ForceTree: React.FC<ForceTreeProps> = ({
             transform: 'translateX(-50%)',
             border: `1px solid ${
               hoveredNode.type === 'genre' ? '#ff00ff' :
-              hoveredNode.type === 'artist' ? '#A855F7' : '#0080FF'
+              hoveredNode.type === 'artist' ? '#A855F7' :
+              hoveredNode.type === 'album' ? '#10FF80' : '#0080FF'
             }`
           }}
         >
@@ -769,7 +902,11 @@ const ForceTree: React.FC<ForceTreeProps> = ({
             <span>Artists</span>
           </div>
           <div className="flex items-center gap-2">
-            <div className="w-3 h-3 rounded-full" style={{ backgroundColor: '#1E40AF' }}></div>
+            <div className="w-3 h-3 rounded-full" style={{ backgroundColor: '#10FF80' }}></div>
+            <span>Albums</span>
+          </div>
+          <div className="flex items-center gap-2">
+            <div className="w-3 h-3 rounded-full" style={{ backgroundColor: '#0080FF' }}></div>
             <span>Tracks</span>
           </div>
           <div className="mt-2 pt-2 border-t border-gray-700 text-xs text-gray-400">
