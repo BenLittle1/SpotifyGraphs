@@ -18,6 +18,7 @@ interface ForceTreeProps {
   nodeScale?: number;
   linkOpacity?: number;
   onNodeClick?: (node: ForceTreeNode) => void;
+  hoverEnabled?: boolean;
 }
 
 const ForceTree: React.FC<ForceTreeProps> = ({ 
@@ -30,7 +31,8 @@ const ForceTree: React.FC<ForceTreeProps> = ({
   gravity = 1.0,
   nodeScale = 1.0,
   linkOpacity = 0.4,
-  onNodeClick
+  onNodeClick,
+  hoverEnabled: externalHoverEnabled = true
 }) => {
   const svgRef = useRef<SVGSVGElement>(null);
   const gRef = useRef<any>(null);
@@ -44,7 +46,7 @@ const ForceTree: React.FC<ForceTreeProps> = ({
   const [downstreamNodes, setDownstreamNodes] = useState<Set<string>>(new Set());
   const [upstreamNodes, setUpstreamNodes] = useState<Set<string>>(new Set());
   const [expandedNodes, setExpandedNodes] = useState<Set<string>>(new Set());
-    const [dynamicMode, setDynamicMode] = useState<boolean>(false);
+  const [dynamicMode, setDynamicMode] = useState<boolean>(false);
   const [trackClustering, setTrackClustering] = useState<boolean>(true);
   const [artistClustering, setArtistClustering] = useState<boolean>(true);
   const [albumClustering, setAlbumClustering] = useState<boolean>(true);
@@ -54,6 +56,9 @@ const ForceTree: React.FC<ForceTreeProps> = ({
   const [showArtists, setShowArtists] = useState<boolean>(true);
   const [showAlbums, setShowAlbums] = useState<boolean>(true);
   const [showTracks, setShowTracks] = useState<boolean>(true);
+  
+  // Hover toggle
+  const [hoverEnabled, setHoverEnabled] = useState<boolean>(externalHoverEnabled);
   
   const [linkOpacities, setLinkOpacities] = useState({
     'genre-artist': 0.6,
@@ -648,6 +653,8 @@ const ForceTree: React.FC<ForceTreeProps> = ({
 
     node
       .on('mouseenter', function(event, d) {
+        if (!hoverEnabled) return; // Skip hover if disabled
+        
         // Clear any pending reset
         if (hoverTimeout) {
           clearTimeout(hoverTimeout);
@@ -658,6 +665,8 @@ const ForceTree: React.FC<ForceTreeProps> = ({
         applyHoverEffect(d);
       })
       .on('mouseleave', function(event, d) {
+        if (!hoverEnabled) return; // Skip hover if disabled
+        
         // Add small delay to prevent flickering when moving between elements
         hoverTimeout = setTimeout(() => {
           clearHoverEffect();
@@ -743,7 +752,16 @@ const ForceTree: React.FC<ForceTreeProps> = ({
     return () => {
       simulation.stop();
     };
-  }, [data, trackClustering, artistClustering, albumClustering, showGenres, showArtists, showAlbums, showTracks]); // Re-render when data or clustering settings change
+  }, [data, trackClustering, artistClustering, albumClustering, showGenres, showArtists, showAlbums, showTracks, hoverEnabled]); // Re-render when data or clustering settings change
+
+  // Reset hover state when hover is disabled
+  useEffect(() => {
+    if (!hoverEnabled) {
+      setHoveredNode(null);
+      setDownstreamNodes(new Set());
+      setUpstreamNodes(new Set());
+    }
+  }, [hoverEnabled]);
 
   // Update visual properties when sliders change
   useEffect(() => {
@@ -1213,6 +1231,24 @@ const ForceTree: React.FC<ForceTreeProps> = ({
               <span>Album Clustering</span>
             </label>
           )}
+        </div>
+
+        {/* Divider */}
+        <div className="border-t border-gray-600"></div>
+        
+        {/* Hover Controls */}
+        <div className="space-y-3">
+          <div className="text-white text-sm font-semibold mb-2">Interaction</div>
+          
+          <label className="flex items-center space-x-2 text-white text-sm">
+            <input
+              type="checkbox"
+              checked={hoverEnabled}
+              onChange={(e) => setHoverEnabled(e.target.checked)}
+              className="w-4 h-4 text-yellow-600 bg-gray-700 border-gray-600 rounded focus:ring-yellow-500 focus:ring-2"
+            />
+            <span style={{ color: '#FFD700' }}>Hover Effects</span>
+          </label>
         </div>
 
         {/* Divider */}

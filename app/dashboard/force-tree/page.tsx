@@ -24,6 +24,7 @@ export default function ForceTreePage() {
   const [nodeScale, setNodeScale] = useState(1.0);
   const [linkOpacity, setLinkOpacity] = useState(0.4);
   const [showControls, setShowControls] = useState(false);
+  const [hoverEnabled, setHoverEnabled] = useState(true);
 
   useEffect(() => {
     if (status === 'loading') return;
@@ -361,6 +362,22 @@ export default function ForceTreePage() {
                 </div>
               </div>
 
+              {/* Hover Toggle */}
+              <div>
+                <label className="flex items-center space-x-2 text-sm font-medium text-gray-400 mb-2">
+                  <input
+                    type="checkbox"
+                    checked={hoverEnabled}
+                    onChange={(e) => setHoverEnabled(e.target.checked)}
+                    className="w-4 h-4 text-yellow-600 bg-gray-700 border-gray-600 rounded focus:ring-yellow-500 focus:ring-2"
+                  />
+                  <span>Hover Effects</span>
+                </label>
+                <div className="text-xs text-gray-500">
+                  Enable/disable node highlighting on hover
+                </div>
+              </div>
+
               {/* Stats */}
               {treeData && !loading && (
                 <div className="pt-4 border-t border-gray-700">
@@ -494,6 +511,7 @@ export default function ForceTreePage() {
               gravity={gravity}
               nodeScale={nodeScale}
               linkOpacity={linkOpacity}
+              hoverEnabled={hoverEnabled}
             />
           )}
         </div>
