@@ -34,7 +34,7 @@ export default function ArtistExplorerPage() {
   const [gravity, setGravity] = useState(1.0);
   const [nodeScale, setNodeScale] = useState(1.0);
   const [linkOpacity, setLinkOpacity] = useState(0.4);
-  const [hoverEnabled, setHoverEnabled] = useState(true);
+  const [hoverEnabled, setHoverEnabled] = useState(false);
 
   useEffect(() => {
     if (status === 'loading') return;

@@ -24,7 +24,7 @@ export default function ForceTreePage() {
   const [nodeScale, setNodeScale] = useState(1.0);
   const [linkOpacity, setLinkOpacity] = useState(0.4);
   const [showControls, setShowControls] = useState(false);
-  const [hoverEnabled, setHoverEnabled] = useState(true);
+  const [hoverEnabled, setHoverEnabled] = useState(false);
 
   useEffect(() => {
     if (status === 'loading') return;

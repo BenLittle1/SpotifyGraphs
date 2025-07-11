@@ -19,7 +19,7 @@ export default function TopTracksPage() {
   const [nodeCount, setNodeCount] = useState<number>(200);
   const [hasLoaded, setHasLoaded] = useState(false);
   const [viewMode, setViewMode] = useState<'network' | 'hierarchical'>('network');
-  const [hoverEnabled, setHoverEnabled] = useState(true);
+  const [hoverEnabled, setHoverEnabled] = useState(false);
 
   useEffect(() => {
     if (status === 'unauthenticated' || session?.error) {

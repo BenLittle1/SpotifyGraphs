@@ -32,7 +32,7 @@ const ForceTree: React.FC<ForceTreeProps> = ({
   nodeScale = 1.0,
   linkOpacity = 0.4,
   onNodeClick,
-  hoverEnabled: externalHoverEnabled = true
+  hoverEnabled: externalHoverEnabled = false
 }) => {
   const svgRef = useRef<SVGSVGElement>(null);
   const gRef = useRef<any>(null);

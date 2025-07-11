@@ -18,7 +18,7 @@ export default function PlayboiCartiPage() {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [showControls, setShowControls] = useState(false);
-  const [hoverEnabled, setHoverEnabled] = useState(true);
+  const [hoverEnabled, setHoverEnabled] = useState(false);
 
   useEffect(() => {
     if (status === 'loading') return;

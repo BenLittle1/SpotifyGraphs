@@ -43,7 +43,7 @@ const ForceGraph: React.FC<ForceGraphProps> = ({
   gravity: externalGravity,
   nodeScale: externalNodeScale,
   linkOpacity: externalLinkOpacity,
-  hoverEnabled: externalHoverEnabled = true
+  hoverEnabled: externalHoverEnabled = false
 }) => {
   const svgRef = useRef<SVGSVGElement>(null);
   const [dynamicMode, setDynamicMode] = useState<boolean>(false);
