@@ -26,6 +26,8 @@ interface ForceGraphProps {
   gravity?: number;
   nodeScale?: number;
   linkOpacity?: number;
+  // Hover controls
+  hoverEnabled?: boolean;
 }
 
 const ForceGraph: React.FC<ForceGraphProps> = ({ 
@@ -40,10 +42,11 @@ const ForceGraph: React.FC<ForceGraphProps> = ({
   linkDistance: externalLinkDistance,
   gravity: externalGravity,
   nodeScale: externalNodeScale,
-  linkOpacity: externalLinkOpacity
+  linkOpacity: externalLinkOpacity,
+  hoverEnabled: externalHoverEnabled = true
 }) => {
   const svgRef = useRef<SVGSVGElement>(null);
-    const [dynamicMode, setDynamicMode] = useState<boolean>(false);
+  const [dynamicMode, setDynamicMode] = useState<boolean>(false);
   const [trackClustering, setTrackClustering] = useState<boolean>(true);
   const [artistClustering, setArtistClustering] = useState<boolean>(true);
   const [albumClustering, setAlbumClustering] = useState<boolean>(true);
@@ -53,6 +56,9 @@ const ForceGraph: React.FC<ForceGraphProps> = ({
   const [showArtists, setShowArtists] = useState<boolean>(true);
   const [showAlbums, setShowAlbums] = useState<boolean>(true);
   const [showTracks, setShowTracks] = useState<boolean>(true);
+  
+  // Hover toggle
+  const [hoverEnabled, setHoverEnabled] = useState<boolean>(externalHoverEnabled);
   
   const [linkOpacities, setLinkOpacities] = useState({
     'genre-artist': 0.6,
@@ -189,6 +195,31 @@ const ForceGraph: React.FC<ForceGraphProps> = ({
         });
     }
   }, [externalNodeScale, viewMode]);
+
+  // Reset highlighting when hover is disabled
+  useEffect(() => {
+    if (!hoverEnabled && svgRef.current) {
+      const svg = d3.select(svgRef.current);
+      const node = svg.selectAll('.node');
+      const link = svg.selectAll('.link');
+      
+      // Reset all visual enhancements
+      node.selectAll('circle')
+        .attr('stroke-width', 2)
+        .attr('stroke-opacity', 0.8)
+        .attr('fill-opacity', 1);
+
+      link.attr('stroke-opacity', (d: any) => {
+        const baseOpacity = linkOpacities[d.type as keyof typeof linkOpacities] || 0.4;
+        return baseOpacity;
+      })
+      .attr('stroke-width', (d: any) => d.strength * (data.nodes.length <= 400 ? 1.5 : 1));
+
+      node.selectAll('text')
+        .attr('opacity', 1)
+        .attr('font-weight', 'normal');
+    }
+  }, [hoverEnabled, linkOpacities, data.nodes.length]);
 
   useEffect(() => {
     if (!svgRef.current || !data.nodes.length) return;
@@ -1236,6 +1267,8 @@ const ForceGraph: React.FC<ForceGraphProps> = ({
 
     node
       .on('mouseenter', (event, d) => {
+        if (!hoverEnabled) return; // Skip hover if disabled
+        
         // Clear any existing timeout
         if (hoverTimeout) {
           clearTimeout(hoverTimeout);
@@ -1252,6 +1285,8 @@ const ForceGraph: React.FC<ForceGraphProps> = ({
           .style('border-color', colorScale[d.group].stroke);
       })
       .on('mousemove', (event, d) => {
+        if (!hoverEnabled) return; // Skip hover if disabled
+        
         // Update tooltip position on mouse move
         if (currentHoveredNode === d.id) {
           tooltip
@@ -1260,6 +1295,8 @@ const ForceGraph: React.FC<ForceGraphProps> = ({
         }
       })
       .on('mouseleave', (event, d) => {
+        if (!hoverEnabled) return; // Skip hover if disabled
+        
         // Add a small delay before resetting to prevent flickering
         hoverTimeout = setTimeout(() => {
           resetHighlighting();
@@ -1321,7 +1358,7 @@ const ForceGraph: React.FC<ForceGraphProps> = ({
       simulation.stop();
       tooltip.remove();
     };
-  }, [data, width, height, viewMode, dynamicMode, linkOpacities, trackClustering, artistClustering, albumClustering, showGenres, showArtists, showAlbums, showTracks]);
+  }, [data, width, height, viewMode, dynamicMode, linkOpacities, trackClustering, artistClustering, albumClustering, showGenres, showArtists, showAlbums, showTracks, hoverEnabled]);
 
   return (
     <div className="relative">
@@ -1369,6 +1406,24 @@ const ForceGraph: React.FC<ForceGraphProps> = ({
               className="w-4 h-4 text-blue-600 bg-gray-700 border-gray-600 rounded focus:ring-blue-500 focus:ring-2"
             />
             <span style={{ color: '#0080FF' }}>Tracks</span>
+          </label>
+        </div>
+
+        {/* Divider */}
+        <div className="border-t border-gray-600"></div>
+        
+        {/* Hover Controls */}
+        <div className="space-y-3">
+          <div className="text-white text-sm font-semibold mb-2">Interaction</div>
+          
+          <label className="flex items-center space-x-2 text-white text-sm">
+            <input
+              type="checkbox"
+              checked={hoverEnabled}
+              onChange={(e) => setHoverEnabled(e.target.checked)}
+              className="w-4 h-4 text-yellow-600 bg-gray-700 border-gray-600 rounded focus:ring-yellow-500 focus:ring-2"
+            />
+            <span style={{ color: '#FFD700' }}>Hover Effects</span>
           </label>
         </div>
 

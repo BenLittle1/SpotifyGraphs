@@ -19,6 +19,7 @@ export default function TopTracksPage() {
   const [nodeCount, setNodeCount] = useState<number>(200);
   const [hasLoaded, setHasLoaded] = useState(false);
   const [viewMode, setViewMode] = useState<'network' | 'hierarchical'>('network');
+  const [hoverEnabled, setHoverEnabled] = useState(true);
 
   useEffect(() => {
     if (status === 'unauthenticated' || session?.error) {
@@ -247,6 +248,7 @@ export default function TopTracksPage() {
                 width={typeof window !== 'undefined' ? window.innerWidth : 1200} 
                 height={typeof window !== 'undefined' ? window.innerHeight - 73 : 800} 
                 viewMode={viewMode}
+                hoverEnabled={hoverEnabled}
               />
             )
           )}
@@ -303,6 +305,24 @@ export default function TopTracksPage() {
                   />
                   <div className="text-xs text-gray-500">
                     Adjust to change visualization size
+                  </div>
+                </div>
+              </div>
+
+              <div className="border-t border-gray-700 pt-4 mb-4">
+                <h3 className="text-lg font-semibold mb-3 text-neon-yellow">Interaction</h3>
+                <div className="space-y-3">
+                  <label className="flex items-center space-x-2 text-sm text-gray-400">
+                    <input
+                      type="checkbox"
+                      checked={hoverEnabled}
+                      onChange={(e) => setHoverEnabled(e.target.checked)}
+                      className="w-4 h-4 text-yellow-600 bg-gray-700 border-gray-600 rounded focus:ring-yellow-500 focus:ring-2"
+                    />
+                    <span>Hover Effects</span>
+                  </label>
+                  <div className="text-xs text-gray-500">
+                    Enable/disable node highlighting on hover
                   </div>
                 </div>
               </div>

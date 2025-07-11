@@ -18,6 +18,7 @@ export default function PlayboiCartiPage() {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [showControls, setShowControls] = useState(false);
+  const [hoverEnabled, setHoverEnabled] = useState(true);
 
   useEffect(() => {
     if (status === 'loading') return;
@@ -147,6 +148,25 @@ export default function PlayboiCartiPage() {
                   </div>
                 </div>
               )}
+
+              {/* Hover Toggle */}
+              <div className="pt-4 border-t border-gray-700">
+                <h3 className="text-sm font-semibold text-gray-300 mb-3">Interaction</h3>
+                <div className="space-y-3">
+                  <label className="flex items-center space-x-2 text-sm text-gray-400">
+                    <input
+                      type="checkbox"
+                      checked={hoverEnabled}
+                      onChange={(e) => setHoverEnabled(e.target.checked)}
+                      className="w-4 h-4 text-yellow-600 bg-gray-700 border-gray-600 rounded focus:ring-yellow-500 focus:ring-2"
+                    />
+                    <span>Hover Effects</span>
+                  </label>
+                  <div className="text-xs text-gray-500">
+                    Enable/disable node highlighting on hover
+                  </div>
+                </div>
+              </div>
             </div>
           </div>
         </div>
@@ -200,6 +220,7 @@ export default function PlayboiCartiPage() {
                 'genre-cluster': { fill: '#FFFFFF', stroke: '#FFFFFF', strokeWidth: 1 }, // solid white
                 'album-cluster': { fill: '#FFFFFF', stroke: '#FFFFFF', strokeWidth: 1 }, // solid white
               }}
+              hoverEnabled={hoverEnabled}
             />
           )}
         </div>
